@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::task::TaskStatus;
 
 /// Represents the current state of a pipeline execution
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct PipelineState {
     /// When the pipeline started executing
     pub start_time: Option<u64>,
@@ -27,7 +27,7 @@ pub struct PipelineState {
 }
 
 /// Represents the current state of a task execution
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TaskState {
     /// Current status of the task
     pub status: TaskStatus,
@@ -93,8 +93,6 @@ impl PipelineState {
                 error: None,
             });
 
-        task_state.status = status;
-
         match status {
             TaskStatus::Running if task_state.start_time.is_none() => {
                 task_state.start_time = Some(Instant::now().elapsed().as_millis() as u64);
@@ -106,5 +104,6 @@ impl PipelineState {
             }
             _ => {}
         }
+        task_state.status = status;
     }
 }

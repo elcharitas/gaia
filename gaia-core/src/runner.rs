@@ -3,17 +3,14 @@
 use std::future::Future;
 use std::pin::Pin;
 
+use crate::Result;
 use crate::error::GaiaError;
 use crate::task::{Task, TaskStatus};
-use crate::Result;
 
 /// Trait for objects that can be executed as part of a pipeline
 pub trait Runnable {
     /// Execute the task and return a result
     fn run(&mut self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>>;
-
-    /// Get the current status of the task
-    fn status(&self) -> TaskStatus;
 
     /// Update the status of the task
     fn set_status(&mut self, status: TaskStatus);
@@ -74,10 +71,6 @@ impl Runnable for Task {
         })
     }
 
-    fn status(&self) -> TaskStatus {
-        self.status
-    }
-
     fn set_status(&mut self, status: TaskStatus) {
         self.status = status;
     }
@@ -112,7 +105,7 @@ mod tests {
         let mut task = Task::new("task-1", "Test Task");
         let result = task.run().await;
         assert!(result.is_ok());
-        assert_eq!(task.status(), TaskStatus::Completed);
+        assert_eq!(task.status, TaskStatus::Completed);
     }
 
     #[tokio::test]
@@ -120,19 +113,19 @@ mod tests {
         let mut task = Task::new("task-fail", "Failing Task");
         let result = task.run().await;
         assert!(result.is_err());
-        assert_eq!(task.status(), TaskStatus::Failed);
+        assert_eq!(task.status, TaskStatus::Failed);
     }
 
     #[tokio::test]
     async fn test_task_status_methods() {
         let mut task = Task::new("task-status", "Status Test Task");
-        assert_eq!(task.status(), TaskStatus::Pending);
+        assert_eq!(task.status, TaskStatus::Pending);
 
         task.set_status(TaskStatus::Running);
-        assert_eq!(task.status(), TaskStatus::Running);
+        assert_eq!(task.status, TaskStatus::Running);
 
         task.set_status(TaskStatus::Completed);
-        assert_eq!(task.status(), TaskStatus::Completed);
+        assert_eq!(task.status, TaskStatus::Completed);
     }
 
     #[tokio::test]
@@ -141,6 +134,6 @@ mod tests {
         task.with_execution_fn(async move || Ok(()));
         let result = task.run().await;
         assert!(result.is_ok());
-        assert_eq!(task.status(), TaskStatus::Completed);
+        assert_eq!(task.status, TaskStatus::Completed);
     }
 }

@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "gaia-core",
-    # "gaia-cli",
+    "gaia-example",
     # "gaia-monitor",
     # "gaia-web",
 ]

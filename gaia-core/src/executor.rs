@@ -15,7 +15,7 @@ pub struct Executor {
 }
 
 /// Configuration options for the executor
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ExecutorConfig {
     /// Default timeout for tasks that don't specify one
     pub default_timeout: Duration,

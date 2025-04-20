@@ -7,7 +7,7 @@ use std::{collections::HashSet, pin::Pin};
 use serde::{Deserialize, Serialize};
 
 /// Status of a task execution
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TaskStatus {
     /// Task is waiting to be executed
     #[default]

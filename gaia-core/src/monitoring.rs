@@ -2,13 +2,13 @@
 
 use std::time::Instant;
 
+use crate::Result;
 use crate::pipeline::Pipeline;
 use crate::state::TaskState;
 use crate::task::TaskStatus;
-use crate::Result;
 
 /// Represents a metric collected during pipeline execution
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Metric {
     /// Name of the metric
     pub name: String,
