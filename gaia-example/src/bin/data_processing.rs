@@ -122,7 +122,7 @@ async fn main() -> Result<()> {
     let executor_config = ExecutorConfig {
         default_timeout: Duration::from_secs(30),
         max_concurrent_tasks: 2,
-        continue_on_failure: false,
+        continue_on_failure: true,
     };
     let executor = Executor::with_config(executor_config);
 

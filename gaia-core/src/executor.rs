@@ -30,7 +30,7 @@ impl Default for ExecutorConfig {
         Self {
             default_timeout: Duration::from_secs(3600), // 1 hour default
             max_concurrent_tasks: 4,
-            continue_on_failure: false,
+            continue_on_failure: true,
         }
     }
 }
@@ -88,7 +88,7 @@ mod tests {
         let executor = Executor::new();
         assert_eq!(executor.config.default_timeout, Duration::from_secs(3600));
         assert_eq!(executor.config.max_concurrent_tasks, 4);
-        assert_eq!(executor.config.continue_on_failure, false);
+        assert_eq!(executor.config.continue_on_failure, true);
     }
 
     #[tokio::test]
