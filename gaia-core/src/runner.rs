@@ -25,9 +25,11 @@ pub trait Runnable {
     fn name(&self) -> &str;
 
     /// Set a custom execution function for this task
-    fn with_execution_fn<F>(&mut self, execution_fn: F) -> Self
+
+    fn with_execution_fn<F, Fut>(&mut self, execution_fn: F) -> &mut Self
     where
-        F: AsyncFnMut() -> Result<()>;
+        F: FnMut() -> Fut + Clone + Send + 'static,
+        Fut: Future<Output = Result<()>> + Send + 'static;
 }
 
 /// Implementation of Runnable for the Task struct
@@ -39,7 +41,7 @@ impl Runnable for Task {
 
             let result = if let Some(execution_fn) = &mut self.execution_fn {
                 // Execute the custom execution function if available
-                match execution_fn() {
+                match execution_fn().await {
                     Ok(_) => Ok(()),
                     Err(e) => {
                         self.status = TaskStatus::Failed;
@@ -88,17 +90,16 @@ impl Runnable for Task {
         &self.name
     }
 
-    fn with_execution_fn<F>(&mut self, mut execution_fn: F) -> Self
+    fn with_execution_fn<F, Fut>(&mut self, execution_fn: F) -> &mut Self
     where
-        F: AsyncFnMut() -> Result<()>,
+        F: FnMut() -> Fut + Clone + Send + 'static,
+        Fut: Future<Output = Result<()>> + Send + 'static,
     {
-        // For Task, we need to adapt the async function to work with our execute method
-        // This is a simplified implementation that doesn't actually use the provided function
-        // In a real implementation, we would need to properly integrate with tokio runtime
-        self.execution_fn = Some(Box::pin(async move {
-            // Execute the provided function
-            execution_fn().await
-        }))
+        self.execution_fn = Some(Box::new(move || {
+            let mut execution_fn = execution_fn.clone();
+            Box::pin(async move { execution_fn().await })
+        }));
+        self
     }
 }
 

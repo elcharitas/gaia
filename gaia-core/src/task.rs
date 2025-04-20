@@ -1,11 +1,11 @@
 //! Task definition and execution
 
-use std::collections::HashSet;
+use std::future::Future;
 use std::time::Duration;
+use std::{collections::HashSet, pin::Pin};
 
 use serde::{Deserialize, Serialize};
 
-use crate::Result;
 /// Status of a task execution
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TaskStatus {
@@ -23,7 +23,11 @@ pub enum TaskStatus {
 }
 
 /// Type alias for a task execution function
-pub type TaskExecutionFn = Box<dyn AsyncFnMut() -> Result<()>>;
+pub type TaskExecutionFn = Box<
+    dyn FnMut() -> Pin<Box<dyn Future<Output = Result<(), crate::error::GaiaError>> + Send>>
+        + Send
+        + 'static,
+>;
 
 /// Represents a single task in a pipeline
 #[derive(Serialize, Deserialize)]
@@ -91,26 +95,6 @@ impl Task {
     pub fn with_retry_count(mut self, retry_count: u32) -> Self {
         self.retry_count = retry_count;
         self
-    }
-
-    /// Set a custom execution function for this task
-    pub fn with_execution_fn<F>(mut self, execution_fn: F) -> Self
-    where
-        F: FnMut() -> Result<(), crate::error::GaiaError> + Send + 'static,
-    {
-        self.execution_fn = Some(Box::new(execution_fn));
-        self
-    }
-
-    /// Execute the task using its execution function if available
-    pub fn execute(&mut self) -> Result<(), crate::error::GaiaError> {
-        if let Some(execution_fn) = &mut self.execution_fn {
-            execution_fn()
-        } else {
-            // Default implementation when no custom function is provided
-            // This maintains backward compatibility
-            Ok(())
-        }
     }
 }
 
