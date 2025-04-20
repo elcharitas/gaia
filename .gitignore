@@ -1,0 +1,12 @@
+/target/
+**/*.rs.bk
+Cargo.lock
+.env
+.idea/
+.vscode/
+*.pdb
+*.exe
+*.dll
+*.so
+*.dylib
+*.log

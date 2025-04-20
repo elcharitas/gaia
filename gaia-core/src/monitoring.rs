@@ -1,0 +1,127 @@
+//! Pipeline and task monitoring functionality
+
+use std::time::Instant;
+
+use crate::pipeline::Pipeline;
+use crate::state::TaskState;
+use crate::task::TaskStatus;
+use crate::Result;
+
+/// Represents a metric collected during pipeline execution
+#[derive(Debug, Clone)]
+pub struct Metric {
+    /// Name of the metric
+    pub name: String,
+
+    /// Value of the metric
+    pub value: f64,
+
+    /// When the metric was collected
+    pub timestamp: Instant,
+
+    /// Labels/tags associated with the metric
+    pub labels: Vec<(String, String)>,
+}
+
+/// Monitors pipeline execution and collects metrics
+#[derive(Debug)]
+pub struct Monitor {
+    /// Metrics collected during pipeline execution
+    metrics: Vec<Metric>,
+}
+
+impl Monitor {
+    /// Create a new monitor
+    pub fn new() -> Self {
+        Self {
+            metrics: Vec::new(),
+        }
+    }
+
+    /// Collect metrics from a pipeline
+    pub fn collect_metrics(&mut self, pipeline: &Pipeline) -> Result<()> {
+        let state = pipeline.state.lock().unwrap();
+
+        // Collect pipeline-level metrics
+        if let Some(duration) = state.duration() {
+            self.add_metric(
+                "pipeline.duration",
+                duration.as_secs_f64(),
+                vec![
+                    ("pipeline_id".to_string(), pipeline.id.clone()),
+                    ("pipeline_name".to_string(), pipeline.name.clone()),
+                ],
+            );
+        }
+
+        // Collect task-level metrics
+        for (task_id, task_state) in &state.task_states {
+            if let Some(task) = pipeline.tasks.get(task_id) {
+                self.collect_task_metrics(task_id, task.name.as_str(), task_state);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Collect metrics for a specific task
+    fn collect_task_metrics(&mut self, task_id: &str, task_name: &str, state: &TaskState) {
+        // Add task status metric
+        let status_value = match state.status {
+            TaskStatus::Pending => 0.0,
+            TaskStatus::Running => 1.0,
+            TaskStatus::Completed => 2.0,
+            TaskStatus::Failed => 3.0,
+            TaskStatus::Cancelled => 4.0,
+        };
+
+        self.add_metric(
+            "task.status",
+            status_value,
+            vec![
+                ("task_id".to_string(), task_id.to_string()),
+                ("task_name".to_string(), task_name.to_string()),
+            ],
+        );
+
+        // Add task duration metric if available
+        if let (Some(start), Some(end)) = (state.start_time, state.end_time) {
+            let duration = (end - start) as f64;
+            self.add_metric(
+                "task.duration",
+                duration,
+                vec![
+                    ("task_id".to_string(), task_id.to_string()),
+                    ("task_name".to_string(), task_name.to_string()),
+                ],
+            );
+        }
+
+        // Add retry count metric
+        if state.retry_count > 0 {
+            self.add_metric(
+                "task.retries",
+                state.retry_count as f64,
+                vec![
+                    ("task_id".to_string(), task_id.to_string()),
+                    ("task_name".to_string(), task_name.to_string()),
+                ],
+            );
+        }
+    }
+
+    /// Add a metric to the collection
+    fn add_metric(&mut self, name: &str, value: f64, labels: Vec<(String, String)>) {
+        self.metrics.push(Metric {
+            name: name.to_string(),
+            value,
+            timestamp: Instant::now(),
+            labels,
+        });
+    }
+
+    /// Get all collected metrics
+    pub fn get_metrics(&self) -> &[Metric] {
+        &self.metrics
+    }
+}

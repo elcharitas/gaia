@@ -1,0 +1,28 @@
+[workspace]
+members = [
+    "gaia-core",
+    # "gaia-cli",
+    # "gaia-monitor",
+    # "gaia-web",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Gaia Contributors"]
+description = "A software for managing and monitoring complex pipelines with precision"
+license = "MIT"
+repository = "https://github.com/gaia/gaia"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.28", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+thiserror = "1.0"
+clap = { version = "4.3", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+axum = "0.6"
+tower = "0.4"
+tower-http = { version = "0.4", features = ["trace"] }
