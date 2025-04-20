@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crate::pipeline::Pipeline;
-use crate::task::{Task, TaskStatus};
+use crate::task::Task;
 use crate::{Result, Runnable};
 
 /// Handles the execution of pipelines and their tasks
@@ -80,7 +80,7 @@ impl Executor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::GaiaError;
+    use crate::task::TaskStatus;
     use std::collections::HashSet;
 
     #[tokio::test]
@@ -98,7 +98,7 @@ mod tests {
             max_concurrent_tasks: 8,
             continue_on_failure: true,
         };
-        let executor = Executor::with_config(config.clone());
+        let executor = Executor::with_config(config);
         assert_eq!(executor.config.default_timeout, Duration::from_secs(1800));
         assert_eq!(executor.config.max_concurrent_tasks, 8);
         assert_eq!(executor.config.continue_on_failure, true);

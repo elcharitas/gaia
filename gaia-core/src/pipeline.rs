@@ -5,7 +5,6 @@ use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::GaiaError;
 use crate::state::PipelineState;
 use crate::task::Task;
 use crate::Result;
@@ -71,7 +70,6 @@ mod tests {
     use super::*;
     use crate::task::TaskStatus;
     use std::collections::HashSet;
-    use std::time::Duration;
 
     #[test]
     fn test_pipeline_new() {
