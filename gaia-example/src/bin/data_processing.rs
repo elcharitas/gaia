@@ -6,7 +6,6 @@ use std::time::Duration;
 use gaia_core::Result;
 use gaia_core::error::GaiaError;
 use gaia_core::executor::{Executor, ExecutorConfig};
-use gaia_core::monitoring::Monitor;
 use gaia_core::pipeline::Pipeline;
 use gaia_core::runner::Runnable;
 use gaia_core::task::Task;
@@ -129,11 +128,7 @@ async fn main() -> Result<()> {
     // Execute the pipeline
     println!("\n🚀 Executing pipeline: {}", pipeline.name);
     let pipeline_arc = Arc::new(Mutex::new(pipeline));
-    executor.execute_pipeline(pipeline_arc.clone()).await?;
-
-    // Create a monitor and collect metrics
-    let mut monitor = Monitor::new();
-    monitor.collect_metrics(&pipeline_arc.lock().unwrap())?;
+    let monitor = executor.execute_pipeline(pipeline_arc).await?;
 
     // Display metrics
     println!("\n📊 Pipeline Metrics:");

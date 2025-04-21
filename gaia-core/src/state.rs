@@ -81,10 +81,10 @@ impl PipelineState {
     }
 
     /// Update the state of a task
-    pub fn update_task(&mut self, task_id: &str, status: TaskStatus) {
+    pub fn update_task(&mut self, task_id: impl Into<String>, status: TaskStatus) {
         let task_state = self
             .task_states
-            .entry(task_id.to_string())
+            .entry(task_id.into())
             .or_insert_with(|| TaskState {
                 status: TaskStatus::Pending,
                 start_time: None,

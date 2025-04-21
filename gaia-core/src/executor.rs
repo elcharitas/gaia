@@ -3,8 +3,9 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use crate::monitoring::Monitor;
 use crate::pipeline::Pipeline;
-use crate::task::Task;
+use crate::task::{Task, TaskStatus};
 use crate::{Result, Runnable};
 
 /// Handles the execution of pipelines and their tasks
@@ -49,8 +50,11 @@ impl Executor {
     }
 
     /// Execute a pipeline
-    pub async fn execute_pipeline(&self, pipeline: Arc<Mutex<Pipeline>>) -> Result<()> {
+    pub async fn execute_pipeline(&self, pipeline: Arc<Mutex<Pipeline>>) -> Result<Monitor> {
         let mut pipeline_guard = pipeline.lock().unwrap();
+        let mut monitor = Monitor::new();
+
+        pipeline_guard.state.lock().unwrap().start();
 
         let mut tasks: Vec<&mut Task> = pipeline_guard.tasks.values_mut().collect();
 
@@ -59,15 +63,34 @@ impl Executor {
 
         for task in tasks {
             if let Err(e) = self.execute_task(task).await {
+                let task_id = task.id.clone();
                 if !self.config.continue_on_failure {
+                    pipeline_guard.state.lock().unwrap().complete(false);
+                    pipeline_guard
+                        .state
+                        .lock()
+                        .unwrap()
+                        .update_task(task_id.clone(), TaskStatus::Failed);
+                    monitor.collect_metrics(&pipeline_guard)?;
                     return Err(e);
                 }
                 // Log the error but continue with next task
                 eprintln!("Task {} failed: {}", task.id, e);
+            } else {
+                let task_id = task.id.clone();
+                // pipeline_guard
+                //     .state
+                //     .lock()
+                //     .unwrap()
+                //     .update_task(task_id.clone(), TaskStatus::Completed);
             }
         }
 
-        Ok(())
+        pipeline_guard.state.lock().unwrap().complete(true);
+
+        monitor.collect_metrics(&pipeline_guard)?;
+
+        Ok(monitor)
     }
 
     /// Execute a single task
