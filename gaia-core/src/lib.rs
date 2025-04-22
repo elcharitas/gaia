@@ -2,6 +2,7 @@
 
 pub mod error;
 pub mod executor;
+pub mod macros;
 pub mod monitoring;
 pub mod pipeline;
 pub mod runner;
