@@ -4,6 +4,7 @@ use std::future::Future;
 use std::time::Duration;
 use std::{collections::HashSet, pin::Pin};
 
+use crate::Result;
 use serde::{Deserialize, Serialize};
 
 /// Status of a task execution
@@ -23,11 +24,8 @@ pub enum TaskStatus {
 }
 
 /// Type alias for a task execution function
-pub type TaskExecutionFn = Box<
-    dyn FnMut() -> Pin<Box<dyn Future<Output = Result<(), crate::error::GaiaError>> + Send>>
-        + Send
-        + 'static,
->;
+pub type TaskExecutionFn =
+    Box<dyn FnMut() -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + 'static>;
 
 /// Represents a single task in a pipeline
 #[derive(Serialize, Deserialize)]
@@ -94,6 +92,11 @@ impl Task {
         self.dependencies.insert(dependency_id.into());
     }
 
+    pub fn with_dependencies(mut self, dependencies: HashSet<String>) -> Self {
+        self.dependencies = dependencies;
+        self
+    }
+
     /// Set the description for this task
     pub fn with_description(mut self, description: impl Into<String>) -> Self {
         self.description = Some(description.into());
@@ -109,6 +112,18 @@ impl Task {
     /// Set the retry count for this task
     pub fn with_retry_count(mut self, retry_count: u32) -> Self {
         self.retry_count = retry_count;
+        self
+    }
+
+    pub fn with_execution_fn<F, Fut>(mut self, execution_fn: F) -> Self
+    where
+        F: FnMut() -> Fut + Clone + Send + 'static,
+        Fut: Future<Output = Result<()>> + Send + 'static,
+    {
+        self.execution_fn = Some(Box::new(move || {
+            let mut execution_fn = execution_fn.clone();
+            Box::pin(async move { execution_fn().await })
+        }));
         self
     }
 }

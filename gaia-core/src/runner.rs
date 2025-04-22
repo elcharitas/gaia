@@ -11,22 +11,6 @@ use crate::task::{Task, TaskStatus};
 pub trait Runnable {
     /// Execute the task and return a result
     fn run(&mut self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>>;
-
-    /// Update the status of the task
-    fn set_status(&mut self, status: TaskStatus);
-
-    /// Get the ID of the task
-    fn id(&self) -> &str;
-
-    /// Get the name of the task
-    fn name(&self) -> &str;
-
-    /// Set a custom execution function for this task
-
-    fn with_execution_fn<F, Fut>(&mut self, execution_fn: F) -> &mut Self
-    where
-        F: FnMut() -> Fut + Clone + Send + 'static,
-        Fut: Future<Output = Result<()>> + Send + 'static;
 }
 
 /// Implementation of Runnable for the Task struct
@@ -70,30 +54,6 @@ impl Runnable for Task {
             result
         })
     }
-
-    fn set_status(&mut self, status: TaskStatus) {
-        self.status = status;
-    }
-
-    fn id(&self) -> &str {
-        &self.id
-    }
-
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn with_execution_fn<F, Fut>(&mut self, execution_fn: F) -> &mut Self
-    where
-        F: FnMut() -> Fut + Clone + Send + 'static,
-        Fut: Future<Output = Result<()>> + Send + 'static,
-    {
-        self.execution_fn = Some(Box::new(move || {
-            let mut execution_fn = execution_fn.clone();
-            Box::pin(async move { execution_fn().await })
-        }));
-        self
-    }
 }
 
 #[cfg(test)]
@@ -117,21 +77,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_task_status_methods() {
-        let mut task = Task::new("task-status", "Status Test Task");
-        assert_eq!(task.status, TaskStatus::Pending);
-
-        task.set_status(TaskStatus::Running);
-        assert_eq!(task.status, TaskStatus::Running);
-
-        task.set_status(TaskStatus::Completed);
-        assert_eq!(task.status, TaskStatus::Completed);
-    }
-
-    #[tokio::test]
     async fn test_task_execution_fn() {
-        let mut task = Task::new("task-execution", "Execution Test Task");
-        task.with_execution_fn(async move || Ok(()));
+        let mut task = Task::new("task-execution", "Execution Test Task")
+            .with_execution_fn(async move || Ok(()));
         let result = task.run().await;
         assert!(result.is_ok());
         assert_eq!(task.status, TaskStatus::Completed);

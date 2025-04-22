@@ -8,7 +8,6 @@ use gaia_core::error::GaiaError;
 use gaia_core::executor::{Executor, ExecutorConfig};
 use gaia_core::monitoring::Monitor;
 use gaia_core::pipeline::Pipeline;
-use gaia_core::runner::Runnable;
 use gaia_core::task::Task;
 
 #[tokio::main]
@@ -24,18 +23,16 @@ async fn main() -> Result<()> {
         .with_description("A pipeline that crawls websites, extracts data, and generates reports");
 
     // Create discover URLs task
-    let mut discover_task = Task::new("discover", "Discover URLs")
+    let discover_task = Task::new("discover", "Discover URLs")
         .with_description("Discover URLs to crawl")
-        .with_timeout(Duration::from_secs(10));
-
-    // Add execution function to discover task
-    discover_task.with_execution_fn(|| async {
-        println!("🔍 Discovering URLs to crawl...");
-        // Simulate work
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        println!("✅ Discovered 5 URLs to crawl");
-        Ok(())
-    });
+        .with_timeout(Duration::from_secs(10))
+        .with_execution_fn(|| async {
+            println!("🔍 Discovering URLs to crawl...");
+            // Simulate work
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            println!("✅ Discovered 5 URLs to crawl");
+            Ok(())
+        });
 
     // Add discover task to pipeline
     pipeline.add_task(discover_task)?;
@@ -44,49 +41,42 @@ async fn main() -> Result<()> {
     let mut fetch_task = Task::new("fetch", "Fetch Content")
         .with_description("Fetch content from discovered URLs")
         .with_timeout(Duration::from_secs(20))
-        .with_retry_count(3);
+        .with_retry_count(3)
+        .with_execution_fn(|| async {
+            println!("📥 Fetching content from URLs...");
+            // Simulate work with potential network issues
+            tokio::time::sleep(Duration::from_secs(2)).await;
 
+            // Simulate occasional network failure
+            if rand::random::<f32>() < 0.3 {
+                // 30% chance of failure
+                println!("⚠️ Network error while fetching, will retry...");
+                return Err(GaiaError::TaskExecutionFailed(
+                    "Network connection error".to_string(),
+                ));
+            }
+
+            println!("✅ Successfully fetched content from all URLs");
+            Ok(())
+        });
     // Add dependency on discover task
     fetch_task.add_dependency("discover");
-
-    // Add execution function to fetch task
-    fetch_task.with_execution_fn(|| async {
-        println!("📥 Fetching content from URLs...");
-        // Simulate work with potential network issues
-        tokio::time::sleep(Duration::from_secs(2)).await;
-
-        // Simulate occasional network failure
-        if rand::random::<f32>() < 0.3 {
-            // 30% chance of failure
-            println!("⚠️ Network error while fetching, will retry...");
-            return Err(GaiaError::TaskExecutionFailed(
-                "Network connection error".to_string(),
-            ));
-        }
-
-        println!("✅ Successfully fetched content from all URLs");
-        Ok(())
-    });
-
     // Add fetch task to pipeline
     pipeline.add_task(fetch_task)?;
 
     // Create parse task with dependency on fetch
     let mut parse_task = Task::new("parse", "Parse Content")
         .with_description("Parse fetched content")
-        .with_timeout(Duration::from_secs(15));
-
+        .with_timeout(Duration::from_secs(15))
+        .with_execution_fn(|| async {
+            println!("🔄 Parsing content...");
+            // Simulate work
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            println!("✅ Content parsed successfully");
+            Ok(())
+        });
     // Add dependency on fetch task
     parse_task.add_dependency("fetch");
-
-    // Add execution function to parse task
-    parse_task.with_execution_fn(|| async {
-        println!("🔄 Parsing content...");
-        // Simulate work
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        println!("✅ Content parsed successfully");
-        Ok(())
-    });
 
     // Add parse task to pipeline
     pipeline.add_task(parse_task)?;
@@ -94,39 +84,33 @@ async fn main() -> Result<()> {
     // Create extract data task with dependency on parse
     let mut extract_task = Task::new("extract", "Extract Data")
         .with_description("Extract structured data from parsed content")
-        .with_timeout(Duration::from_secs(10));
+        .with_timeout(Duration::from_secs(10))
+        .with_execution_fn(|| async {
+            println!("📊 Extracting structured data...");
+            // Simulate work
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            println!("✅ Data extracted successfully");
+            Ok(())
+        });
 
     // Add dependency on parse task
     extract_task.add_dependency("parse");
-
-    // Add execution function to extract task
-    extract_task.with_execution_fn(|| async {
-        println!("📊 Extracting structured data...");
-        // Simulate work
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        println!("✅ Data extracted successfully");
-        Ok(())
-    });
-
     // Add extract task to pipeline
     pipeline.add_task(extract_task)?;
 
     // Create report task with dependency on extract
     let mut report_task = Task::new("report", "Generate Report")
         .with_description("Generate report from extracted data")
-        .with_timeout(Duration::from_secs(5));
-
+        .with_timeout(Duration::from_secs(5))
+        .with_execution_fn(|| async {
+            println!("📝 Generating report...");
+            // Simulate work
+            tokio::time::sleep(Duration::from_millis(800)).await;
+            println!("✅ Report generated successfully");
+            Ok(())
+        });
     // Add dependency on extract task
     report_task.add_dependency("extract");
-
-    // Add execution function to report task
-    report_task.with_execution_fn(|| async {
-        println!("📝 Generating report...");
-        // Simulate work
-        tokio::time::sleep(Duration::from_millis(800)).await;
-        println!("✅ Report generated successfully");
-        Ok(())
-    });
 
     // Add report task to pipeline
     pipeline.add_task(report_task)?;

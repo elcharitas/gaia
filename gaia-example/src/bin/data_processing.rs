@@ -7,7 +7,6 @@ use gaia_core::Result;
 use gaia_core::error::GaiaError;
 use gaia_core::executor::{Executor, ExecutorConfig};
 use gaia_core::pipeline::Pipeline;
-use gaia_core::runner::Runnable;
 use gaia_core::task::Task;
 
 use rand::Rng;
@@ -27,19 +26,17 @@ async fn main() -> Result<()> {
         );
 
     // Create tasks with dependencies
-    let mut extract_task = Task::new("extract", "Extract Data")
+    let extract_task = Task::new("extract", "Extract Data")
         .with_description("Extract data from source")
         .with_timeout(Duration::from_secs(10))
-        .with_retry_count(3);
-
-    // Add execution function to extract task
-    extract_task.with_execution_fn(async || {
-        println!("🔍 Extracting data from source...");
-        // Simulate work
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        println!("✅ Data extraction complete");
-        Ok(())
-    });
+        .with_retry_count(3)
+        .with_execution_fn(async || {
+            println!("🔍 Extracting data from source...");
+            // Simulate work
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            println!("✅ Data extraction complete");
+            Ok(())
+        });
 
     // Add extract task to pipeline
     pipeline.add_task(extract_task)?;
@@ -47,29 +44,27 @@ async fn main() -> Result<()> {
     // Create transform task with dependency on extract
     let mut transform_task = Task::new("transform", "Transform Data")
         .with_description("Transform extracted data")
-        .with_timeout(Duration::from_secs(15));
+        .with_timeout(Duration::from_secs(15))
+        .with_execution_fn(async || {
+            println!("🔄 Transforming data...");
+            // Simulate work with random chance of failure
+            tokio::time::sleep(Duration::from_secs(2)).await;
+
+            let mut rng = rand::thread_rng();
+            if rng.gen_bool(0.2) {
+                // 20% chance of failure
+                println!("❌ Data transformation failed, will retry...");
+                return Err(GaiaError::TaskExecutionFailed(
+                    "Random transformation failure".to_string(),
+                ));
+            }
+
+            println!("✅ Data transformation complete");
+            Ok(())
+        });
 
     // Add dependency on extract task
     transform_task.add_dependency("extract");
-
-    // Add execution function to transform task
-    transform_task.with_execution_fn(async || {
-        println!("🔄 Transforming data...");
-        // Simulate work with random chance of failure
-        tokio::time::sleep(Duration::from_secs(2)).await;
-
-        let mut rng = rand::thread_rng();
-        if rng.gen_bool(0.2) {
-            // 20% chance of failure
-            println!("❌ Data transformation failed, will retry...");
-            return Err(GaiaError::TaskExecutionFailed(
-                "Random transformation failure".to_string(),
-            ));
-        }
-
-        println!("✅ Data transformation complete");
-        Ok(())
-    });
 
     // Add transform task to pipeline
     pipeline.add_task(transform_task)?;
@@ -77,19 +72,17 @@ async fn main() -> Result<()> {
     // Create load task with dependency on transform
     let mut load_task = Task::new("load", "Load Data")
         .with_description("Load transformed data to destination")
-        .with_timeout(Duration::from_secs(10));
+        .with_timeout(Duration::from_secs(10))
+        .with_execution_fn(async || {
+            println!("📥 Loading data to destination...");
+            // Simulate work
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            println!("✅ Data loading complete");
+            Ok(())
+        });
 
     // Add dependency on transform task
     load_task.add_dependency("transform");
-
-    // Add execution function to load task
-    load_task.with_execution_fn(async || {
-        println!("📥 Loading data to destination...");
-        // Simulate work
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        println!("✅ Data loading complete");
-        Ok(())
-    });
 
     // Add load task to pipeline
     pipeline.add_task(load_task)?;
@@ -97,19 +90,16 @@ async fn main() -> Result<()> {
     // Create validate task with dependency on load
     let mut validate_task = Task::new("validate", "Validate Data")
         .with_description("Validate loaded data")
-        .with_timeout(Duration::from_secs(5));
-
+        .with_timeout(Duration::from_secs(5))
+        .with_execution_fn(async || {
+            println!("✓ Validating loaded data...");
+            // Simulate work
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            println!("✅ Data validation complete");
+            Ok(())
+        });
     // Add dependency on load task
     validate_task.add_dependency("load");
-
-    // Add execution function to validate task
-    validate_task.with_execution_fn(async || {
-        println!("✓ Validating loaded data...");
-        // Simulate work
-        tokio::time::sleep(Duration::from_millis(500)).await;
-        println!("✅ Data validation complete");
-        Ok(())
-    });
 
     // Add validate task to pipeline
     pipeline.add_task(validate_task)?;

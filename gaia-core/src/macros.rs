@@ -10,19 +10,21 @@ macro_rules! define_pipeline {
                 $( dependencies: [ $( $dep:ident ),* $(,)? ], )?
                 $( timeout: $timeout:expr, )?
                 $( retry_count: $retry:expr, )?
-                exec: $exec_fn:expr $(,)?
+                handler: $exec_fn:expr $(,)?
             } ),* $(,)?
         }
     ) => {{
         let mut pipeline = $crate::Pipeline::new(stringify!($pipeline_id), $pipeline_name);
         $(
+            #[allow(unused_mut)]
             let mut deps = std::collections::HashSet::new();
             $( $( deps.insert(stringify!($dep).to_string()); )* )?
-            let mut task = $crate::Task::new(stringify!($task_id).to_string(), $task_name.to_string())
+            let task = $crate::Task::new(stringify!($task_id).to_string(), $task_name.to_string())
                 $(.with_description($task_desc.to_string()))?
+                .with_dependencies(deps)
                 $(.with_timeout($timeout))?
-                $(.with_retry_count($retry))?;
-                (task as $crate::runner::Runnable).with_execution_fn($exec_fn);
+                $(.with_retry_count($retry))?
+                .with_execution_fn($exec_fn);
             pipeline.add_task(task).unwrap();
         )*
         pipeline
@@ -33,22 +35,22 @@ macro_rules! define_pipeline {
 mod tests {
     use crate::task::TaskStatus;
 
-    fn dummy_exec() -> fn() -> () {
-        || ()
-    }
-
     #[test]
     fn test_define_pipeline_macro_basic() {
         let pipeline = define_pipeline!(
             test_pipeline, "Test Pipeline", {
                 task1: {
                     name: "Task 1",
-                    exec: dummy_exec(),
+                    handler:  async || {
+                        Ok(())
+                    },
                 },
                 task2: {
                     name: "Task 2",
                     dependencies: [task1],
-                    exec: dummy_exec(),
+                    handler: async || {
+                        Ok(())
+                    },
                 },
             }
         );
