@@ -1,12 +1,10 @@
 //! Gaia UI - Dioxus frontend for Gaia pipeline management and monitoring
 
 use dioxus::prelude::*;
-use dioxus_free_icons::IconShape;
-use dioxus_free_icons::icons::bs_icons::{BsPauseFill, BsPlayFill, BsStopFill};
+// use dioxus_free_icons::icons::bs_icons::{BsArrowRepeat, BsPauseFill, BsPlayFill, BsStopFill};
 use dioxus_router::prelude::*;
-use gaia_core::monitoring::Monitor;
-use gaia_core::pipeline::Pipeline;
-use gaia_core::task::{Task, TaskStatus};
+use gaia_core::task::TaskStatus;
+use gaia_core::{Pipeline, Task, monitoring::Monitor};
 
 // Import custom components
 mod components;
@@ -30,14 +28,13 @@ enum Route {
 }
 
 // Main application component
-fn App() -> Element {
+fn app() -> Element {
     rsx! {
         div { class: "min-h-screen bg-gray-50",
-            // Include the navigation component
-            Navigation {}
 
             // Main content area
-            main { class: "py-4",
+            main {
+                class: "py-4",
                 Router::<Route> {}
             }
         }
@@ -54,19 +51,19 @@ fn Home() -> Element {
                 DashboardCard {
                     title: "Active Pipelines",
                     value: "3",
-                    icon: BsPlayFill,
+                    icon: rsx! { },
                     color: "bg-green-100 text-green-800"
                 }
                 DashboardCard {
                     title: "Completed Pipelines",
                     value: "12",
-                    icon: BsPauseFill,
+                    icon: rsx! { },
                     color: "bg-blue-100 text-blue-800"
                 }
                 DashboardCard {
                     title: "Failed Pipelines",
                     value: "2",
-                    icon: BsStopFill,
+                    icon: rsx! { },
                     color: "bg-red-100 text-red-800"
                 }
             }
@@ -80,10 +77,10 @@ fn Home() -> Element {
 
 // Dashboard card component for metrics
 #[component]
-fn DashboardCard<I: IconShape + PartialEq + 'static>(
+fn DashboardCard(
     title: &'static str,
     value: &'static str,
-    icon: I,
+    icon: Element,
     color: &'static str,
 ) -> Element {
     rsx! {
@@ -132,16 +129,7 @@ fn PipelineList() -> Element {
                             td { class: "py-3 px-4", "{id}" }
                             td { class: "py-3 px-4", "{name}" }
                             td { class: "py-3 px-4",
-                                {
-                                    let status_class = match *status {
-                                        "Running" => "bg-green-100 text-green-800",
-                                        "Completed" => "bg-blue-100 text-blue-800",
-                                        "Failed" => "bg-red-100 text-red-800",
-                                        _ => "bg-gray-100 text-gray-800",
-                                    };
-
-                                    rsx!{ span { class: "px-2 py-1 rounded-full text-xs {status_class}", "{status}" }}
-                                }
+                                span { class: "px-2 py-1 rounded-full text-xs", "{status}" }
                             }
                             td { class: "py-3 px-4",
                                 div { class: "w-full bg-gray-200 rounded-full h-2.5",
@@ -413,7 +401,5 @@ fn create_sample_monitor() -> Monitor {
 fn main() {
     // Initialize logger
     env_logger::init();
-
-    #[cfg(feature = "web")]
-    dioxus::web::launch::launch_cfg(App, dioxus::web::Config::new());
+    dioxus::launch(app);
 }
