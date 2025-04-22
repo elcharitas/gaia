@@ -8,7 +8,7 @@ use crate::state::TaskState;
 use crate::task::TaskStatus;
 
 /// Represents a metric collected during pipeline execution
-#[derive(Debug)]
+#[derive(Clone, PartialEq)]
 pub struct Metric {
     /// Name of the metric
     pub name: String,
@@ -24,7 +24,7 @@ pub struct Metric {
 }
 
 /// Monitors pipeline execution and collects metrics
-#[derive(Debug)]
+#[derive(Clone, PartialEq)]
 pub struct Monitor {
     /// Metrics collected during pipeline execution
     metrics: Vec<Metric>,
@@ -111,7 +111,7 @@ impl Monitor {
     }
 
     /// Add a metric to the collection
-    fn add_metric(&mut self, name: &str, value: f64, labels: Vec<(String, String)>) {
+    pub fn add_metric(&mut self, name: &str, value: f64, labels: Vec<(String, String)>) {
         self.metrics.push(Metric {
             name: name.to_string(),
             value,

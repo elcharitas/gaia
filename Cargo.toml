@@ -2,6 +2,7 @@
 members = [
     "gaia-core",
     "gaia-example",
+    "gaia-ui",
     # "gaia-monitor",
     # "gaia-web",
 ]
@@ -28,3 +29,15 @@ chrono = { version = "0.4", features = ["serde"] }
 axum = "0.6"
 tower = "0.4"
 tower-http = { version = "0.4", features = ["trace"] }
+
+[profile]
+
+[profile.wasm-dev]
+inherits = "dev"
+opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"

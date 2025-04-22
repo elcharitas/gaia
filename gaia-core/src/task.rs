@@ -59,6 +59,21 @@ pub struct Task {
     pub execution_fn: Option<TaskExecutionFn>,
 }
 
+impl Clone for Task {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            description: self.description.clone(),
+            dependencies: self.dependencies.clone(),
+            timeout: self.timeout,
+            retry_count: self.retry_count,
+            status: self.status.clone(),
+            execution_fn: None,
+        }
+    }
+}
+
 impl Task {
     /// Create a new task with the given ID and name
     pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {

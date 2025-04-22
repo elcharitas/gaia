@@ -5,12 +5,12 @@ use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
+use crate::Result;
 use crate::state::PipelineState;
 use crate::task::Task;
-use crate::Result;
 
 /// Represents a pipeline of tasks with dependencies
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Pipeline {
     /// Unique identifier for the pipeline
     pub id: String,
@@ -27,6 +27,12 @@ pub struct Pipeline {
     /// Current state of the pipeline
     #[serde(skip)]
     pub state: Arc<Mutex<PipelineState>>,
+}
+
+impl PartialEq for Pipeline {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
 }
 
 impl Pipeline {
