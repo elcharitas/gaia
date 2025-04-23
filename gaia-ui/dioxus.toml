@@ -1,0 +1,18 @@
+[application]
+name = "gaia-ui"
+
+[web]
+# Directory for static assets
+assets = "src/assets"
+out_dir = "dist"
+index_on_404 = true
+
+[serve]
+host = "127.0.0.1"
+port = 8080
+auto_reload = true
+open = false
+
+[build]
+target = "web"
+release = false

@@ -27,8 +27,10 @@ enum Route {
 // Main application component
 fn app() -> Element {
     rsx! {
+        document::Stylesheet {
+            href: asset!("/src/assets/styles.css")
+        }
         div { class: "min-h-screen bg-gray-50",
-
             // Main content area
             main {
                 class: "py-4",
