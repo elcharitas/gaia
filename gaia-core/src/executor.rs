@@ -5,7 +5,7 @@ use std::time::Duration;
 use crate::monitoring::Monitor;
 use crate::pipeline::Pipeline;
 use crate::task::{Task, TaskStatus};
-use crate::{Result, Runnable};
+use crate::{Result, runner::Runnable};
 
 /// Handles the execution of pipelines and their tasks
 #[derive(Debug)]

@@ -8,7 +8,7 @@ use crate::error::GaiaError;
 use crate::task::{Task, TaskStatus};
 
 /// Trait for objects that can be executed as part of a pipeline
-pub trait Runnable {
+pub(super) trait Runnable {
     /// Execute the task and return a result
     fn run(&mut self) -> Pin<Box<dyn Future<Output = Result<()>> + Send + '_>>;
 }

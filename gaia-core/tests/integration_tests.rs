@@ -1,7 +1,5 @@
 //! Integration tests for gaia-core
 
-use std::sync::{Arc, Mutex};
-
 use gaia_core::executor::Executor;
 use gaia_core::pipeline::Pipeline;
 use gaia_core::task::Task;
@@ -18,8 +16,7 @@ async fn test_pipeline_execution_with_dependencies() {
     task2.add_dependency("task-1");
     pipeline.add_task(task2).unwrap();
 
-    let pipeline_arc = Arc::new(Mutex::new(pipeline));
-    let result = executor.execute_pipeline(pipeline_arc.clone()).await;
+    let result = executor.execute_pipeline(pipeline).await;
 
     assert!(result.is_ok());
 }
@@ -34,8 +31,7 @@ async fn test_executor_configuration_affects_execution() {
         pipeline.add_task(task).unwrap();
     }
 
-    let pipeline_arc = Arc::new(Mutex::new(pipeline));
-    let result = executor.execute_pipeline(pipeline_arc.clone()).await;
+    let result = executor.execute_pipeline(pipeline).await;
 
     assert!(result.is_ok());
 }
@@ -50,8 +46,7 @@ async fn test_pipeline_with_error_handling() {
         pipeline.add_task(task).unwrap();
     }
 
-    let pipeline_arc = Arc::new(Mutex::new(pipeline));
-    let result = executor.execute_pipeline(pipeline_arc.clone()).await;
+    let result = executor.execute_pipeline(pipeline).await;
 
     assert!(result.is_ok());
 }

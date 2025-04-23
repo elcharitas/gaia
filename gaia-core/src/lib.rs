@@ -13,7 +13,6 @@ pub mod task;
 pub use error::GaiaError;
 pub use executor::Executor;
 pub use pipeline::Pipeline;
-pub use runner::Runnable;
 pub use state::PipelineState;
 pub use task::Task;
 

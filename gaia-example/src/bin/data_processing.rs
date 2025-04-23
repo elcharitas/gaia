@@ -5,7 +5,7 @@ use std::time::Duration;
 use gaia_core::Result;
 use gaia_core::define_pipeline;
 use gaia_core::error::GaiaError;
-use gaia_core::executor::{Executor, ExecutorConfig};
+use gaia_core::executor::Executor;
 
 use rand::Rng;
 
@@ -78,12 +78,7 @@ async fn main() -> Result<()> {
 
     pipeline.validate()?;
 
-    let executor_config = ExecutorConfig {
-        default_timeout: Duration::from_secs(30),
-        max_concurrent_tasks: 2,
-        continue_on_failure: true,
-    };
-    let executor = Executor::with_config(executor_config);
+    let executor = Executor::new();
 
     println!("\n🚀 Executing pipeline: {}", pipeline.name);
     let monitor = executor.execute_pipeline(pipeline).await?;

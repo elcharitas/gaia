@@ -47,7 +47,7 @@ pub struct TaskState {
 
 impl PipelineState {
     /// Create a new pipeline state
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             start_time: None,
             end_time: None,
@@ -58,19 +58,19 @@ impl PipelineState {
     }
 
     /// Mark the pipeline as started
-    pub fn start(&mut self) {
+    pub(super) fn start(&mut self) {
         self.start_time = Some(Instant::now().elapsed().as_millis() as u64);
     }
 
     /// Mark the pipeline as complete
-    pub fn complete(&mut self, success: bool) {
+    pub(super) fn complete(&mut self, success: bool) {
         self.end_time = Some(Instant::now().elapsed().as_millis() as u64);
         self.is_complete = true;
         self.is_successful = success;
     }
 
     /// Get the duration of the pipeline execution
-    pub fn duration(&self) -> Option<Duration> {
+    pub(super) fn duration(&self) -> Option<Duration> {
         match (self.start_time, self.end_time) {
             (Some(start), Some(end)) => Some(Duration::from_millis(end - start)),
             (Some(start), None) => Some(Duration::from_millis(
@@ -81,7 +81,7 @@ impl PipelineState {
     }
 
     /// Update the state of a task
-    pub fn update_task(&mut self, task_id: impl Into<String>, status: TaskStatus) {
+    pub(super) fn update_task(&mut self, task_id: impl Into<String>, status: TaskStatus) {
         let task_state = self
             .task_states
             .entry(task_id.into())
