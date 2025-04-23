@@ -8,7 +8,9 @@ license = "MIT"
 repository = "https://github.com/elcharitas/gaia"
 
 [dependencies]
-# gaia-core = { path = "../gaia-core" }
+gaia-core = { path = "../gaia-core", features = [
+    "wasm",
+], default-features = false }
 dioxus = { version = "0.6", features = ["fullstack"] }
 dioxus-router = "0.6"
 dioxus-free-icons = { version = "0.9", features = ["bootstrap"] }

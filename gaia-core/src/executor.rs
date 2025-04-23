@@ -106,6 +106,10 @@ mod tests {
     use crate::task::TaskStatus;
     use std::collections::HashSet;
 
+    #[cfg(feature = "tokio")]
+    use tokio;
+
+    #[cfg(feature = "tokio")]
     #[tokio::test]
     async fn test_executor_new() {
         let executor = Executor::new();
@@ -114,6 +118,7 @@ mod tests {
         assert_eq!(executor.config.continue_on_failure, true);
     }
 
+    #[cfg(feature = "tokio")]
     #[tokio::test]
     async fn test_executor_with_config() {
         let config = ExecutorConfig {
@@ -127,6 +132,7 @@ mod tests {
         assert_eq!(executor.config.continue_on_failure, true);
     }
 
+    #[cfg(feature = "tokio")]
     #[tokio::test]
     async fn test_execute_task() {
         let executor = Executor::new();
@@ -146,6 +152,7 @@ mod tests {
         assert_eq!(task.status, TaskStatus::Completed);
     }
 
+    #[cfg(feature = "tokio")]
     #[tokio::test]
     async fn test_execute_pipeline_empty() {
         let executor = Executor::new();
@@ -156,6 +163,7 @@ mod tests {
     }
 
     // Test timeout handling
+    #[cfg(feature = "tokio")]
     #[tokio::test]
     async fn test_task_timeout() {
         let executor = Executor::new();
@@ -171,6 +179,7 @@ mod tests {
     }
 
     // Test error handling
+    #[cfg(feature = "tokio")]
     #[tokio::test]
     async fn test_task_error_handling() {
         // This would test how the executor handles task failures
@@ -180,7 +189,6 @@ mod tests {
                 "Test error".to_string(),
             ))
         });
-
         let result = executor.execute_task(&mut task).await;
         assert!(result.is_err());
     }

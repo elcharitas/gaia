@@ -13,4 +13,9 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, optional = true }
+
+[features]
+default = ["tokio"]
+tokio = ["tokio/full"]
+wasm = []

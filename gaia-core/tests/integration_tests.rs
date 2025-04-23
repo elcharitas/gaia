@@ -4,6 +4,10 @@ use gaia_core::executor::Executor;
 use gaia_core::pipeline::Pipeline;
 use gaia_core::task::Task;
 
+#[cfg(feature = "tokio")]
+use tokio;
+
+#[cfg(feature = "tokio")]
 #[tokio::test]
 async fn test_pipeline_execution_with_dependencies() {
     let executor = Executor::new();
@@ -21,6 +25,7 @@ async fn test_pipeline_execution_with_dependencies() {
     assert!(result.is_ok());
 }
 
+#[cfg(feature = "tokio")]
 #[tokio::test]
 async fn test_executor_configuration_affects_execution() {
     let executor = Executor::new();
@@ -36,6 +41,7 @@ async fn test_executor_configuration_affects_execution() {
     assert!(result.is_ok());
 }
 
+#[cfg(feature = "tokio")]
 #[tokio::test]
 async fn test_pipeline_with_error_handling() {
     let executor = Executor::new();
