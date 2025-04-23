@@ -1,6 +1,5 @@
 //! Example data processing pipeline using Gaia
 
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use gaia_core::Result;
@@ -87,8 +86,7 @@ async fn main() -> Result<()> {
     let executor = Executor::with_config(executor_config);
 
     println!("\n🚀 Executing pipeline: {}", pipeline.name);
-    let pipeline_arc = Arc::new(Mutex::new(pipeline));
-    let monitor = executor.execute_pipeline(pipeline_arc).await?;
+    let monitor = executor.execute_pipeline(pipeline).await?;
 
     println!("\n📊 Pipeline Metrics:");
     for metric in monitor.get_metrics() {
