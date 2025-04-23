@@ -17,10 +17,14 @@ pub enum TaskStatus {
     Running,
     /// Task completed successfully
     Completed,
+    /// Task Timeout
+    TimedOut,
     /// Task failed
     Failed,
     /// Task was cancelled
     Cancelled,
+    /// Task was skipped
+    Skipped,
 }
 
 /// Type alias for a task execution function

@@ -72,7 +72,9 @@ impl Monitor {
             TaskStatus::Running => 1.0,
             TaskStatus::Completed => 2.0,
             TaskStatus::Failed => 3.0,
-            TaskStatus::Cancelled => 4.0,
+            TaskStatus::TimedOut => 4.0,
+            TaskStatus::Skipped => 5.0,
+            TaskStatus::Cancelled => 6.0,
         };
 
         self.add_metric(

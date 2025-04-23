@@ -21,29 +21,29 @@ impl Runnable for Task {
             self.status = TaskStatus::Running;
 
             let result = if let Some(execution_fn) = &mut self.execution_fn {
-                // Execute the custom execution function if available
-                match execution_fn().await {
-                    Ok(_) => Ok(()),
+                let result = if let Some(timeout) = self.timeout {
+                    tokio::time::timeout(timeout, execution_fn()).await
+                } else {
+                    Ok(execution_fn().await)
+                };
+                match result {
+                    Ok(res) => match res {
+                        Ok(_) => Ok(()),
+                        Err(e) => {
+                            self.status = TaskStatus::Failed;
+                            Err(GaiaError::TaskExecutionFailed(format!(
+                                "Task {} failed: {}",
+                                self.id, e
+                            )))
+                        }
+                    },
                     Err(e) => {
-                        self.status = TaskStatus::Failed;
-                        Err(GaiaError::TaskExecutionFailed(format!(
-                            "Task {} failed: {}",
-                            self.id, e
-                        )))
+                        self.status = TaskStatus::TimedOut;
+                        Err(GaiaError::TaskTimeout(e))
                     }
                 }
             } else {
-                // Default implementation for backward compatibility
-                // Check if we should simulate a failure (for testing)
-                if self.id.contains("fail") {
-                    self.status = TaskStatus::Failed;
-                    Err(GaiaError::TaskExecutionFailed(format!(
-                        "Task {} failed",
-                        self.id
-                    )))
-                } else {
-                    Ok(())
-                }
+                Ok(())
             };
 
             // Update status to Completed if successful
@@ -70,7 +70,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_task_run_failure() {
-        let mut task = Task::new("task-fail", "Failing Task");
+        let mut task = Task::new("task-fail", "Failing Task").with_execution_fn(async move || {
+            Err(GaiaError::TaskExecutionFailed(
+                "Execution failed".to_string(),
+            ))
+        });
         let result = task.run().await;
         assert!(result.is_err());
         assert_eq!(task.status, TaskStatus::Failed);

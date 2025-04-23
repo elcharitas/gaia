@@ -159,11 +159,15 @@ mod tests {
     #[tokio::test]
     async fn test_task_timeout() {
         let executor = Executor::new();
-        let mut task =
-            Task::new("task-timeout", "Timeout Task").with_timeout(Duration::from_millis(100));
+        let mut task = Task::new("task-timeout", "Timeout Task")
+            .with_timeout(Duration::from_millis(100))
+            .with_execution_fn(async || {
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                Ok(())
+            });
 
         let result = executor.execute_task(&mut task).await;
-        assert!(result.is_ok()); // Currently passes because our implementation is a stub
+        assert!(result.is_err());
     }
 
     // Test error handling
@@ -178,6 +182,6 @@ mod tests {
         });
 
         let result = executor.execute_task(&mut task).await;
-        assert!(result.is_ok()); // Currently passes because our implementation is a stub
+        assert!(result.is_err());
     }
 }

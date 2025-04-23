@@ -79,6 +79,8 @@ pub fn PipelineGraph(pipeline: Pipeline) -> Element {
                             TaskStatus::Completed => "bg-green-100 border-green-300",
                             TaskStatus::Failed => "bg-red-100 border-red-300",
                             TaskStatus::Cancelled => "bg-yellow-100 border-yellow-300",
+                            TaskStatus::TimedOut => "bg-orange-100 border-orange-300",
+                            TaskStatus::Skipped => "bg-purple-100 border-purple-300",
                         };
 
                         rsx! {
