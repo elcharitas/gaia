@@ -1,8 +1,5 @@
 //! UI components for the Gaia pipeline manager
 
-mod metrics_visualization;
+// mod metrics_visualization;
 mod navigation;
-mod pipeline_graph;
-
-pub use metrics_visualization::{MetricsTable, MetricsVisualization};
-pub use pipeline_graph::PipelineGraph;
+// mod pipeline_graph;
