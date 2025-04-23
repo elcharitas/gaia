@@ -5,16 +5,26 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use crate::GaiaError;
 use crate::monitoring::Monitor;
 use crate::pipeline::Pipeline;
 use crate::task::{Task, TaskStatus};
-use crate::{Result, runner::Runnable};
 
 /// Handles the execution of pipelines and their tasks
 #[derive(Debug)]
 pub struct Executor {
     /// Configuration for the executor
     config: ExecutorConfig,
+}
+
+pub struct ExecutorContext {
+    task_statuses: Arc<Mutex<HashMap<String, TaskStatus>>>,
+}
+
+impl ExecutorContext {
+    pub fn task_status(&self, task_id: &str) -> Option<TaskStatus> {
+        self.task_statuses.lock().unwrap().get(task_id).cloned()
+    }
 }
 
 /// Configuration options for the executor
@@ -52,7 +62,7 @@ impl Executor {
     }
 
     /// Execute a pipeline
-    pub async fn execute_pipeline(&self, mut pipeline: Pipeline) -> Result<Monitor> {
+    pub async fn execute_pipeline(&self, mut pipeline: Pipeline) -> crate::Result<Monitor> {
         let mut monitor = Monitor::new();
 
         pipeline.validate()?; // Validate the pipeline before execution
@@ -103,7 +113,7 @@ impl Executor {
                 let statuses = Arc::clone(&task_statuses);
                 let id_clone = id.clone();
                 let exec = async move {
-                    let result = self.execute_task(&mut task).await;
+                    let result = self.execute_task(&mut task, statuses.clone()).await;
                     let mut statuses = statuses.lock().unwrap();
                     statuses.insert(
                         id_clone.clone(),
@@ -149,9 +159,54 @@ impl Executor {
     }
 
     /// Execute a single task
-    pub async fn execute_task(&self, task: &mut Task) -> Result<()> {
+    pub async fn execute_task(
+        &self,
+        task: &mut Task,
+        task_statuses: Arc<Mutex<HashMap<String, TaskStatus>>>,
+    ) -> crate::Result<()> {
         // Execute the task using the Runnable trait
-        task.run().await
+        task.status = TaskStatus::Running;
+
+        let result = if let Some(execution_fn) = &mut task.execution_fn {
+            let result: Result<crate::Result<()>, _> = if let Some(timeout) = task.timeout {
+                #[cfg(feature = "tokio")]
+                let exec =
+                    tokio::time::timeout(timeout, execution_fn(ExecutorContext { task_statuses }))
+                        .await;
+                #[cfg(not(feature = "tokio"))]
+                let exec = Ok::<crate::Result<()>, ()>(
+                    execution_fn(ExecutorContext { task_statuses }).await,
+                );
+                exec
+            } else {
+                Ok(execution_fn(ExecutorContext { task_statuses }).await)
+            };
+            match result {
+                Ok(res) => match res {
+                    Ok(_) => Ok(()),
+                    Err(e) => {
+                        task.status = TaskStatus::Failed;
+                        Err(GaiaError::TaskExecutionFailed(format!(
+                            "Task {} failed: {}",
+                            task.id, e
+                        )))
+                    }
+                },
+                Err(_) => {
+                    task.status = TaskStatus::TimedOut;
+                    Err(GaiaError::TaskTimeout)
+                }
+            }
+        } else {
+            Ok(())
+        };
+
+        // Update status to Completed if successful
+        if result.is_ok() {
+            task.status = TaskStatus::Completed;
+        }
+
+        result
     }
 }
 
@@ -202,7 +257,7 @@ mod tests {
             execution_fn: None,
         };
 
-        let result = executor.execute_task(&mut task).await;
+        let result = executor.execute_task(&mut task, Arc::default()).await;
         assert!(result.is_ok());
         assert_eq!(task.status, TaskStatus::Completed);
     }
@@ -229,7 +284,7 @@ mod tests {
                 Ok(())
             });
 
-        let result = executor.execute_task(&mut task).await;
+        let result = executor.execute_task(&mut task, Arc::default()).await;
         assert!(result.is_err());
     }
 
@@ -244,7 +299,7 @@ mod tests {
                 "Test error".to_string(),
             ))
         });
-        let result = executor.execute_task(&mut task).await;
+        let result = executor.execute_task(&mut task, Arc::default()).await;
         assert!(result.is_err());
     }
 }

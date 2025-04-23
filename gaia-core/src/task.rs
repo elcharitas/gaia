@@ -5,6 +5,7 @@ use std::time::Duration;
 use std::{collections::HashSet, pin::Pin};
 
 use crate::Result;
+use crate::executor::ExecutorContext;
 use serde::{Deserialize, Serialize};
 
 /// Status of a task execution
@@ -28,8 +29,9 @@ pub enum TaskStatus {
 }
 
 /// Type alias for a task execution function
-pub type TaskExecutionFn =
-    Box<dyn FnMut() -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + 'static>;
+pub type TaskExecutionFn = Box<
+    dyn FnMut(ExecutorContext) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + 'static,
+>;
 
 /// Represents a single task in a pipeline
 #[derive(Serialize, Deserialize)]
@@ -125,7 +127,7 @@ impl Task {
         F: FnMut() -> Fut + Clone + Send + 'static,
         Fut: Future<Output = Result<()>> + Send + 'static,
     {
-        self.execution_fn = Some(Box::new(move || {
+        self.execution_fn = Some(Box::new(move |_| {
             let mut execution_fn = execution_fn.clone();
             Box::pin(async move { execution_fn().await })
         }));

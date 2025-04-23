@@ -35,7 +35,7 @@ async fn main() -> Result<()> {
                 description: "Transform extracted data",
                 dependencies: [extract],
                 timeout: Duration::from_secs(15),
-                handler: async || {
+                handler: async move || {
                     println!("🔄 Transforming data...");
                     tokio::time::sleep(Duration::from_secs(2)).await;
                     let mut rng = rand::thread_rng();
