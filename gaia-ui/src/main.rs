@@ -8,7 +8,7 @@ use gaia_core::{Pipeline, Task, monitoring::Monitor};
 
 // Import custom components
 mod components;
-use components::{MetricsTable, MetricsVisualization, Navigation, PipelineGraph};
+use components::{MetricsTable, MetricsVisualization, PipelineGraph};
 
 // Define the main routes for the application
 #[derive(Routable, Clone, PartialEq)]
@@ -214,6 +214,8 @@ fn PipelineDetails(id: String) -> Element {
                                                 TaskStatus::Completed => ("Completed", "bg-blue-100 text-blue-800"),
                                                 TaskStatus::Failed => ("Failed", "bg-red-100 text-red-800"),
                                                 TaskStatus::Cancelled => ("Cancelled", "bg-yellow-100 text-yellow-800"),
+                                                TaskStatus::TimedOut => ("Timed Out", "bg-orange-100 text-orange-800"),
+                                                TaskStatus::Skipped => ("Skipped", "bg-purple-100 text-purple-800"),
                                             };
                                             rsx! {
                                                 span { class: "px-2 py-1 rounded-full text-xs {status_class}", "{status_text}" }
