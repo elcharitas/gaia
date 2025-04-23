@@ -6,7 +6,7 @@ use std::time::Duration;
 use gaia_core::Result;
 use gaia_core::define_pipeline;
 use gaia_core::error::GaiaError;
-use gaia_core::executor::{Executor, ExecutorConfig};
+use gaia_core::executor::Executor;
 use rand::Rng;
 
 #[tokio::main]
@@ -16,7 +16,7 @@ async fn main() -> Result<()> {
     println!("=== Gaia Web Crawler Pipeline Example ===");
     println!("This example demonstrates a web crawler pipeline with multiple dependent tasks");
 
-    let pipeline = define_pipeline!(
+    let base_pipeline = define_pipeline!(
         web_crawler, "Web Crawler Pipeline", {
             discover: {
                 name: "Discover URLs",
@@ -88,14 +88,27 @@ async fn main() -> Result<()> {
         }
     );
 
+    // Inherit from base_pipeline and add a new task
+    let pipeline = define_pipeline!(
+        web_crawler_extended : base_pipeline, "Web Crawler Pipeline (Extended)", {
+            summarize: {
+                name: "Summarize Results",
+                description: "Summarize the crawling results",
+                dependencies: [report],
+                timeout: Duration::from_secs(3),
+                handler: async || {
+                    println!("📈 Summarizing crawling results...");
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    println!("✅ Summary complete");
+                    Ok(())
+                },
+            },
+        }
+    );
+
     pipeline.validate()?;
 
-    let executor_config = ExecutorConfig {
-        default_timeout: Duration::from_secs(30),
-        max_concurrent_tasks: 2,
-        continue_on_failure: true,
-    };
-    let executor = Executor::with_config(executor_config);
+    let executor = Executor::new();
 
     println!("\n🚀 Executing pipeline: {}", pipeline.name);
     let pipeline_arc = Arc::new(Mutex::new(pipeline));

@@ -3,7 +3,7 @@
 #[macro_export]
 macro_rules! define_pipeline {
     (
-        $pipeline_id:ident, $pipeline_name:expr, {
+        $pipeline_id:ident$(:$parent_pipeline:expr)?, $pipeline_name:expr, {
             $( $task_id:ident: {
                 name: $task_name:expr,
                 $( description: $task_desc:expr, )?
@@ -15,6 +15,7 @@ macro_rules! define_pipeline {
         }
     ) => {{
         let mut pipeline = $crate::Pipeline::new(stringify!($pipeline_id), $pipeline_name);
+        $(let _ = pipeline.extend($parent_pipeline);)?
         $(
             #[allow(unused_mut)]
             let mut deps = std::collections::HashSet::new();

@@ -47,6 +47,13 @@ impl Pipeline {
         }
     }
 
+    pub fn extend(&mut self, other: Self) -> Result<()> {
+        for (_, task) in other.tasks {
+            self.add_task(task.clone())?;
+        }
+        Ok(())
+    }
+
     /// Add a task to the pipeline
     pub fn add_task(&mut self, task: Task) -> Result<()> {
         self.tasks.insert(task.id.clone(), task);
