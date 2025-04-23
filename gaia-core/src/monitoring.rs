@@ -39,7 +39,7 @@ impl Monitor {
     }
 
     /// Collect metrics from a pipeline
-    pub fn collect_metrics(&mut self, pipeline: &Pipeline) -> Result<()> {
+    pub(super) fn collect_metrics(&mut self, pipeline: &Pipeline) -> Result<()> {
         let state = pipeline.state.lock().unwrap();
 
         // Collect pipeline-level metrics

@@ -105,11 +105,8 @@ async fn main() -> Result<()> {
         }
     );
 
-    pipeline.validate()?;
-
-    let executor = Executor::new();
-
     println!("\n🚀 Executing pipeline: {}", pipeline.name);
+    let executor = Executor::new();
     let monitor = executor.execute_pipeline(pipeline).await?;
 
     println!("\n📊 Pipeline Metrics:");

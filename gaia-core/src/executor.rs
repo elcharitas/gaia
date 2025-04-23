@@ -52,6 +52,8 @@ impl Executor {
     pub async fn execute_pipeline(&self, mut pipeline: Pipeline) -> Result<Monitor> {
         let mut monitor = Monitor::new();
 
+        pipeline.validate()?; // Validate the pipeline before execution
+
         pipeline.state.lock().unwrap().start();
 
         let mut tasks: Vec<&mut Task> = pipeline.tasks.values_mut().collect();
