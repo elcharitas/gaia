@@ -279,7 +279,7 @@ mod tests {
         let executor = Executor::new();
         let mut task = Task::new("task-timeout", "Timeout Task")
             .with_timeout(Duration::from_millis(100))
-            .with_execution_fn(async || {
+            .with_execution_fn(async |_| {
                 tokio::time::sleep(Duration::from_secs(2)).await;
                 Ok(())
             });
@@ -294,7 +294,7 @@ mod tests {
     async fn test_task_error_handling() {
         // This would test how the executor handles task failures
         let executor = Executor::new();
-        let mut task = Task::new("task-error", "Error Task").with_execution_fn(async || {
+        let mut task = Task::new("task-error", "Error Task").with_execution_fn(async |_| {
             Err(crate::error::GaiaError::TaskExecutionFailed(
                 "Test error".to_string(),
             ))

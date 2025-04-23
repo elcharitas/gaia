@@ -124,12 +124,12 @@ impl Task {
 
     pub fn with_execution_fn<F, Fut>(mut self, execution_fn: F) -> Self
     where
-        F: FnMut() -> Fut + Clone + Send + 'static,
+        F: FnMut(ExecutorContext) -> Fut + Clone + Send + 'static,
         Fut: Future<Output = Result<()>> + Send + 'static,
     {
-        self.execution_fn = Some(Box::new(move |_| {
+        self.execution_fn = Some(Box::new(move |e| {
             let mut execution_fn = execution_fn.clone();
-            Box::pin(async move { execution_fn().await })
+            Box::pin(async move { execution_fn(e).await })
         }));
         self
     }

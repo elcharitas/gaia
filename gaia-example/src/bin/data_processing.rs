@@ -23,7 +23,7 @@ async fn main() -> Result<()> {
                 description: "Extract data from source",
                 timeout: Duration::from_secs(10),
                 retry_count: 3,
-                handler: async || {
+                handler: async |_| {
                     println!("🔍 Extracting data from source...");
                     tokio::time::sleep(Duration::from_secs(1)).await;
                     println!("✅ Data extraction complete");
@@ -35,7 +35,7 @@ async fn main() -> Result<()> {
                 description: "Transform extracted data",
                 dependencies: [extract],
                 timeout: Duration::from_secs(15),
-                handler: async move || {
+                handler: async move |_| {
                     println!("🔄 Transforming data...");
                     tokio::time::sleep(Duration::from_secs(2)).await;
                     let mut rng = rand::thread_rng();
@@ -54,7 +54,7 @@ async fn main() -> Result<()> {
                 description: "Load transformed data to destination",
                 dependencies: [transform],
                 timeout: Duration::from_secs(10),
-                handler: async || {
+                handler: async |_| {
                     println!("📥 Loading data to destination...");
                     tokio::time::sleep(Duration::from_secs(1)).await;
                     println!("✅ Data loading complete");
@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
                 description: "Validate loaded data",
                 dependencies: [load],
                 timeout: Duration::from_secs(5),
-                handler: async || {
+                handler: async |_| {
                     println!("✓ Validating loaded data...");
                     tokio::time::sleep(Duration::from_millis(500)).await;
                     println!("✅ Data validation complete");

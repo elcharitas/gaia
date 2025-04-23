@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
                 name: "Discover URLs",
                 description: "Discover URLs to crawl",
                 timeout: Duration::from_secs(10),
-                handler: async || {
+                handler: async |_| {
                     println!("🔍 Discovering URLs to crawl...");
                     tokio::time::sleep(Duration::from_secs(1)).await;
                     println!("✅ Discovered 5 URLs to crawl");
@@ -34,7 +34,7 @@ async fn main() -> Result<()> {
                 dependencies: [discover],
                 timeout: Duration::from_secs(20),
                 retry_count: 3,
-                handler: async || {
+                handler: async |_| {
                     println!("📥 Fetching content from URLs...");
                     tokio::time::sleep(Duration::from_secs(2)).await;
                     let mut rng = rand::thread_rng();
@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
                 description: "Parse fetched content",
                 dependencies: [fetch],
                 timeout: Duration::from_secs(15),
-                handler: async || {
+                handler: async |_| {
                     println!("🔄 Parsing content...");
                     tokio::time::sleep(Duration::from_secs(1)).await;
                     println!("✅ Content parsed successfully");
@@ -65,7 +65,7 @@ async fn main() -> Result<()> {
                 description: "Extract structured data from parsed content",
                 dependencies: [parse],
                 timeout: Duration::from_secs(10),
-                handler: async || {
+                handler: async |_| {
                     println!("📊 Extracting structured data...");
                     tokio::time::sleep(Duration::from_secs(1)).await;
                     println!("✅ Data extracted successfully");
@@ -77,7 +77,7 @@ async fn main() -> Result<()> {
                 description: "Generate report from extracted data",
                 dependencies: [extract],
                 timeout: Duration::from_secs(5),
-                handler: async || {
+                handler: async |_| {
                     println!("📝 Generating report...");
                     tokio::time::sleep(Duration::from_millis(800)).await;
                     println!("✅ Report generated successfully");
@@ -95,7 +95,7 @@ async fn main() -> Result<()> {
                 description: "Summarize the crawling results",
                 dependencies: [report],
                 timeout: Duration::from_secs(3),
-                handler: async || {
+                handler: async |_| {
                     println!("📈 Summarizing crawling results...");
                     tokio::time::sleep(Duration::from_millis(500)).await;
                     println!("✅ Summary complete");
