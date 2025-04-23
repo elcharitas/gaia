@@ -13,12 +13,13 @@ pub fn Navigation() -> Element {
     let route = use_route::<Route>();
 
     rsx! {
-        nav { class: "bg-white shadow-md",
+        nav { class: "bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 shadow-lg sticky top-0 z-50",
             div { class: "container mx-auto px-4",
                 div { class: "flex items-center justify-between h-16",
                     // Logo/Brand
-                    div { class: "flex items-center",
-                        Link { to: Route::Home {}, class: "text-xl font-bold text-blue-600", "Gaia" }
+                    div { class: "flex items-center space-x-3",
+                        Icon { width: 28, height: 28, icon: BsDiagram3Fill, class: "text-white" }
+                        Link { to: Route::Home {}, class: "text-2xl font-extrabold text-white tracking-wide", "Gaia" }
                     }
 
                     // Navigation Links
@@ -27,25 +28,25 @@ pub fn Navigation() -> Element {
                             NavLink {
                                 to: Route::Home {},
                                 active: matches!(route, Route::Home {..}),
-                                icon: rsx! { Icon { width: 18, height: 18, icon: BsHouseFill } },
+                                icon: rsx! { Icon { width: 20, height: 20, icon: BsHouseFill, class: "" } },
                                 label: "Dashboard"
                             }
                             NavLink {
                                 to: Route::Pipelines {},
                                 active: matches!(route, Route::Pipelines {..}) || matches!(route, Route::PipelineDetails {..}),
-                                icon: rsx! { Icon { width: 18, height: 18, icon: BsDiagram3Fill } },
+                                icon: rsx! { Icon { width: 20, height: 20, icon: BsDiagram3Fill, class: "" } },
                                 label: "Pipelines"
                             }
                             NavLink {
                                 to: Route::Tasks {},
                                 active: matches!(route, Route::Tasks {..}) || matches!(route, Route::TaskDetails {..}),
-                                icon: rsx! { Icon { width: 18, height: 18, icon: BsListTask } },
+                                icon: rsx! { Icon { width: 20, height: 20, icon: BsListTask, class: "" } },
                                 label: "Tasks"
                             }
                             NavLink {
                                 to: Route::Metrics {},
                                 active: matches!(route, Route::Metrics {..}),
-                                icon: rsx! { Icon { width: 18, height: 18, icon: BsGraphUp } },
+                                icon: rsx! { Icon { width: 20, height: 20, icon: BsGraphUp, class: "" } },
                                 label: "Metrics"
                             }
                         }

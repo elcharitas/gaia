@@ -30,12 +30,26 @@ fn app() -> Element {
         document::Stylesheet {
             href: asset!("/src/assets/styles.css")
         }
-        div { class: "min-h-screen bg-gray-50",
-            // Main content area
+        header { class: "bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 py-6 shadow-lg",
+            div { class: "container mx-auto flex flex-col md:flex-row items-center justify-between px-4",
+                div { class: "flex items-center space-x-4",
+                    img { src: asset!("/src/assets/logo.svg"), alt: "Gaia Logo", class: "h-12 w-12 rounded-full shadow-lg border-4 border-white bg-white" }
+                    h1 { class: "text-4xl font-extrabold text-white tracking-wide drop-shadow-lg", "Gaia Pipeline Manager" }
+                }
+                nav { class: "mt-4 md:mt-0 flex space-x-4 text-white font-semibold text-lg",
+                    Link { to: Route::Home {}, class: "hover:text-yellow-200 transition", "Home" }
+                    Link { to: Route::Pipelines {}, class: "hover:text-yellow-200 transition", "Pipelines" }
+                    Link { to: Route::Tasks {}, class: "hover:text-yellow-200 transition", "Tasks" }
+                    Link { to: Route::Metrics {}, class: "hover:text-yellow-200 transition", "Metrics" }
+                }
+            }
+        }
+        div { class: "min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-pink-50 flex flex-col justify-between",
             main {
-                class: "py-4",
+                class: "py-4 flex-1",
                 Router::<Route> {}
             }
+            Footer {}
         }
     }
 }
@@ -44,30 +58,30 @@ fn app() -> Element {
 #[component]
 fn Home() -> Element {
     rsx! {
-        div { class: "container mx-auto p-4",
-            h1 { class: "text-3xl font-bold mb-6", "Gaia Pipeline Manager" }
+        section { class: "container mx-auto p-4",
+            h1 { class: "text-3xl font-bold mb-6 text-blue-700", "Gaia Pipeline Manager" }
             div { class: "grid grid-cols-1 md:grid-cols-3 gap-4",
                 DashboardCard {
                     title: "Active Pipelines",
                     value: "3",
-                    icon: rsx! { },
+                    icon: rsx! { dioxus_free_icons::Icon { width: 32, height: 32, icon: dioxus_free_icons::icons::bs_icons::BsPlayFill, class: "text-green-500" } },
                     color: "bg-green-100 text-green-800"
                 }
                 DashboardCard {
                     title: "Completed Pipelines",
                     value: "12",
-                    icon: rsx! { },
+                    icon: rsx! { dioxus_free_icons::Icon { width: 32, height: 32, icon: dioxus_free_icons::icons::bs_icons::BsArrowRepeat, class: "text-blue-500" } },
                     color: "bg-blue-100 text-blue-800"
                 }
                 DashboardCard {
                     title: "Failed Pipelines",
                     value: "2",
-                    icon: rsx! { },
+                    icon: rsx! { dioxus_free_icons::Icon { width: 32, height: 32, icon: dioxus_free_icons::icons::bs_icons::BsStopFill, class: "text-red-500" } },
                     color: "bg-red-100 text-red-800"
                 }
             }
             div { class: "mt-8",
-                h2 { class: "text-2xl font-bold mb-4", "Recent Pipelines" }
+                h2 { class: "text-2xl font-bold mb-4 text-purple-700", "Recent Pipelines" }
                 PipelineList {}
             }
         }
@@ -83,14 +97,12 @@ fn DashboardCard(
     color: &'static str,
 ) -> Element {
     rsx! {
-        div { class: "p-6 rounded-lg shadow-md {color}",
-            div { class: "flex justify-between items-center",
-                div {
-                    h3 { class: "text-lg font-semibold", "{title}" }
-                    p { class: "text-3xl font-bold mt-2", "{value}" }
-                }
-                div { class: "text-2xl" }
+        div { class: "p-6 rounded-lg shadow-md flex items-center justify-between {color}",
+            div {
+                h3 { class: "text-lg font-semibold", "{title}" }
+                p { class: "text-3xl font-bold mt-2", "{value}" }
             }
+            div { class: "text-4xl", {icon} }
         }
     }
 }
@@ -236,4 +248,17 @@ fn main() {
     // Initialize logger
     env_logger::init();
     dioxus::launch(app);
+}
+
+// Footer component
+#[component]
+fn Footer() -> Element {
+    rsx! {
+        footer { class: "bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 text-white py-4 mt-8 shadow-inner",
+            div { class: "container mx-auto flex flex-col md:flex-row items-center justify-between px-4",
+                span { class: "font-semibold", "© 2024 Gaia Pipeline Manager" }
+                span { class: "text-sm mt-2 md:mt-0", "Made with ❤️ using Dioxus & Rust" }
+            }
+        }
+    }
 }
