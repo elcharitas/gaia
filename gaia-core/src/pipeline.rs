@@ -1,13 +1,13 @@
 //! Pipeline definition and management
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
-use crate::Result;
 use crate::state::PipelineState;
 use crate::task::Task;
+use crate::{GaiaError, Result};
 
 /// Represents a pipeline of tasks with dependencies
 #[derive(Clone, Serialize, Deserialize)]
@@ -73,8 +73,44 @@ impl Pipeline {
 
     /// Validate the pipeline for circular dependencies
     pub fn validate(&self) -> Result<()> {
-        // Basic validation logic - would be expanded in a real implementation
+        let mut visited = HashSet::new();
+        let mut stack = HashSet::new();
+        for (_, task) in &self.tasks {
+            if !visited.contains(&task.id) {
+                if self.has_cycle(task, &mut visited, &mut stack)? {
+                    return Err(GaiaError::CircularDependency);
+                }
+            }
+        }
         Ok(())
+    }
+
+    /// Check if the pipeline has a cycle
+    fn has_cycle(
+        &self,
+        task: &Task,
+        visited: &mut HashSet<String>,
+        stack: &mut HashSet<String>,
+    ) -> Result<bool> {
+        if stack.contains(&task.id) {
+            return Ok(true);
+        }
+        if visited.contains(&task.id) {
+            return Ok(false);
+        }
+        visited.insert(task.id.clone());
+        stack.insert(task.id.clone());
+        for dep in &task.dependencies {
+            if let Some(dep_task) = self.get_task(dep) {
+                if self.has_cycle(dep_task, visited, stack)? {
+                    return Ok(true);
+                }
+            } else {
+                return Err(GaiaError::TaskNotFound(dep.to_string()));
+            }
+        }
+        stack.remove(&task.id);
+        Ok(false)
     }
 }
 

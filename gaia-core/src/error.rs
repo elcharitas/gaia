@@ -14,6 +14,10 @@ pub enum GaiaError {
     #[error("Pipeline not found: {0}")]
     PipelineNotFound(String),
 
+    /// Error when a task is not valid
+    #[error("Task is not valid: {0}")]
+    TaskNotValid(String),
+
     /// Error when a task fails to execute
     #[error("Task execution failed: {0}")]
     TaskExecutionFailed(String),
