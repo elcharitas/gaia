@@ -92,8 +92,9 @@ impl Task {
     }
 
     /// Add a dependency to this task
-    pub fn add_dependency(&mut self, dependency_id: impl Into<String>) {
+    pub fn add_dependency(mut self, dependency_id: impl Into<String>) -> Self {
         self.dependencies.insert(dependency_id.into());
+        self
     }
 
     pub fn with_dependencies(mut self, dependencies: HashSet<String>) -> Self {
@@ -169,18 +170,18 @@ mod tests {
 
     #[test]
     fn test_task_add_dependency() {
-        let mut task = Task::new("task-1", "Test Task");
-        task.add_dependency("dependency-1");
+        let task = Task::new("task-1", "Test Task");
+        let task = task.add_dependency("dependency-1");
         assert!(task.dependencies.contains("dependency-1"));
         assert_eq!(task.dependencies.len(), 1);
 
         // Add another dependency
-        task.add_dependency("dependency-2");
+        let task = task.add_dependency("dependency-2");
         assert!(task.dependencies.contains("dependency-2"));
         assert_eq!(task.dependencies.len(), 2);
 
         // Add duplicate dependency
-        task.add_dependency("dependency-1");
+        let task = task.add_dependency("dependency-1");
         assert_eq!(task.dependencies.len(), 2); // Should still be 2
     }
 

@@ -14,21 +14,19 @@ macro_rules! define_pipeline {
             } ),* $(,)?
         }
     ) => {{
-        let mut pipeline = $crate::Pipeline::new(stringify!($pipeline_id), $pipeline_name);
-        $(let _ = pipeline.extend($parent_pipeline);)?
+        let mut $pipeline_id = $crate::Pipeline::new(stringify!($pipeline_id), $pipeline_name);
+        $(let _ = $pipeline_id.extend($parent_pipeline);)?
         $(
             #[allow(unused_mut)]
-            let mut deps = std::collections::HashSet::new();
-            $( $( deps.insert(stringify!($dep).to_string()); )* )?
-            let task = $crate::Task::new(stringify!($task_id).to_string(), $task_name.to_string())
+            let $task_id = $crate::Task::new(stringify!($task_id).to_string(), $task_name)
                 $(.with_description($task_desc.to_string()))?
-                .with_dependencies(deps)
+                $($(.add_dependency(stringify!($dep).to_string()))*)?
                 $(.with_timeout($timeout))?
                 $(.with_retry_count($retry))?
                 .with_execution_fn($exec_fn);
-            pipeline.add_task(task).unwrap();
+            $pipeline_id.add_task($task_id).unwrap();
         )*
-        pipeline
+        $pipeline_id
     }};
 }
 

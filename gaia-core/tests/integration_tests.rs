@@ -16,8 +16,7 @@ async fn test_pipeline_execution_with_dependencies() {
     let task1 = Task::new("task-1", "First Task");
     pipeline.add_task(task1).unwrap();
 
-    let mut task2 = Task::new("task-2", "Second Task");
-    task2.add_dependency("task-1");
+    let task2 = Task::new("task-2", "Second Task").add_dependency("task-1");
     pipeline.add_task(task2).unwrap();
 
     let result = executor.execute_pipeline(pipeline).await;
