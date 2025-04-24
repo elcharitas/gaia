@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use gaia_core::Result;
-use gaia_core::define_pipeline;
+use gaia_core::pipeline;
 use gaia_core::error::GaiaError;
 use gaia_core::executor::Executor;
 use rand::Rng;
@@ -15,8 +15,8 @@ async fn main() -> Result<()> {
     println!("=== Gaia Web Crawler Pipeline Example ===");
     println!("This example demonstrates a web crawler pipeline with multiple dependent tasks");
 
-    let base_pipeline = define_pipeline!(
-        web_crawler, "Web Crawler Pipeline", {
+    let base_pipeline = pipeline!(
+        web_crawler, "Web Crawler Pipeline" => {
             discover: {
                 name: "Discover URLs",
                 description: "Discover URLs to crawl",
@@ -88,8 +88,8 @@ async fn main() -> Result<()> {
     );
 
     // Inherit from base_pipeline and add a new task
-    let pipeline = define_pipeline!(
-        web_crawler_extended : base_pipeline, "Web Crawler Pipeline (Extended)", {
+    let pipeline = pipeline!(
+        web_crawler_extended : base_pipeline, "Web Crawler Pipeline (Extended)" => {
             summarize: {
                 name: "Summarize Results",
                 description: "Summarize the crawling results",

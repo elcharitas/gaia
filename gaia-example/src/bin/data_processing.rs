@@ -3,9 +3,9 @@
 use std::time::Duration;
 
 use gaia_core::Result;
-use gaia_core::define_pipeline;
 use gaia_core::error::GaiaError;
 use gaia_core::executor::Executor;
+use gaia_core::pipeline;
 
 use rand::Rng;
 
@@ -16,8 +16,8 @@ async fn main() -> Result<()> {
     println!("=== Gaia Data Processing Pipeline Example ===");
     println!("This example demonstrates a data pipeline with multiple dependent tasks");
 
-    let pipeline = define_pipeline!(
-        data_processing, "Data Processing Pipeline", {
+    let pipeline = pipeline! {
+        data_processing, "Data Processing Pipeline" => {
             extract: {
                 name: "Extract Data",
                 description: "Extract data from source",
@@ -74,7 +74,7 @@ async fn main() -> Result<()> {
                 },
             },
         }
-    );
+    };
 
     println!("\n🚀 Executing pipeline: {}", pipeline.name);
     let executor = Executor::new();
