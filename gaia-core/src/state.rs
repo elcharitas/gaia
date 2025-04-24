@@ -3,12 +3,10 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use serde::{Deserialize, Serialize};
-
 use crate::task::TaskStatus;
 
 /// Represents the current state of a pipeline execution
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug)]
 pub struct PipelineState {
     /// When the pipeline started executing
     pub start_time: Option<u64>,
@@ -27,7 +25,7 @@ pub struct PipelineState {
 }
 
 /// Represents the current state of a task execution
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct TaskState {
     /// Current status of the task
     pub status: TaskStatus,
@@ -97,13 +95,22 @@ impl PipelineState {
             TaskStatus::Running if task_state.start_time.is_none() => {
                 task_state.start_time = Some(Instant::now().elapsed().as_millis() as u64);
             }
-            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Cancelled => {
+            TaskStatus::Completed(_) | TaskStatus::Failed | TaskStatus::Cancelled => {
                 if task_state.end_time.is_none() {
                     task_state.end_time = Some(Instant::now().elapsed().as_millis() as u64);
                 }
             }
             _ => {}
         }
-        task_state.status = status;
+        match status {
+            TaskStatus::Completed(res) => {
+                if res.is_empty() {
+                    task_state.status = TaskStatus::Completed(res);
+                }
+            }
+            _ => {
+                task_state.status = status;
+            }
+        }
     }
 }

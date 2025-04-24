@@ -2,8 +2,6 @@
 
 use std::time::Instant;
 
-use crate::Result;
-use crate::pipeline::Pipeline;
 use crate::state::TaskState;
 use crate::task::TaskStatus;
 
@@ -38,32 +36,6 @@ impl Monitor {
         }
     }
 
-    /// Collect metrics from a pipeline
-    pub(super) fn collect_metrics(&mut self, pipeline: &Pipeline) -> Result<()> {
-        let state = pipeline.state.lock().unwrap();
-
-        // Collect pipeline-level metrics
-        if let Some(duration) = state.duration() {
-            self.add_metric(
-                "pipeline.duration",
-                duration.as_secs_f64(),
-                vec![
-                    ("pipeline_id".to_string(), pipeline.id.clone()),
-                    ("pipeline_name".to_string(), pipeline.name.clone()),
-                ],
-            );
-        }
-
-        // Collect task-level metrics
-        for (task_id, task_state) in &state.task_states {
-            if let Some(task) = pipeline.tasks.get(task_id) {
-                self.collect_task_metrics(task_id, task.name.as_str(), task_state);
-            }
-        }
-
-        Ok(())
-    }
-
     /// Collect metrics for a specific task
     pub(super) fn collect_task_metrics(
         &mut self,
@@ -75,7 +47,7 @@ impl Monitor {
         let status_value = match state.status {
             TaskStatus::Pending => 0.0,
             TaskStatus::Running => 1.0,
-            TaskStatus::Completed => 2.0,
+            TaskStatus::Completed(_) => 2.0,
             TaskStatus::Failed => 3.0,
             TaskStatus::TimedOut => 4.0,
             TaskStatus::Skipped => 5.0,

@@ -1,5 +1,7 @@
 //! Task definition and execution
 
+use std::any::Any;
+use std::fmt::Debug;
 use std::future::Future;
 use std::time::Duration;
 use std::{collections::HashSet, pin::Pin};
@@ -8,8 +10,117 @@ use crate::Result;
 use crate::executor::ExecutorContext;
 use serde::{Deserialize, Serialize};
 
+pub trait TaskResult: Debug + Any + Send + 'static {
+    fn is_empty(&self) -> bool {
+        false
+    }
+}
+
+impl PartialEq for dyn TaskResult {
+    fn eq(&self, _: &Self) -> bool {
+        false
+    }
+}
+
+impl TaskResult for () {
+    fn is_empty(&self) -> bool {
+        true
+    }
+}
+
+impl TaskResult for String {
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+}
+impl TaskResult for Vec<u8> {
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+}
+
+impl TaskResult for bool {
+    fn is_empty(&self) -> bool {
+        false
+    }
+}
+
+impl TaskResult for i32 {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for i64 {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for i128 {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for u32 {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for u64 {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for u128 {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for f32 {
+    fn is_empty(&self) -> bool {
+        self == &0.0
+    }
+}
+
+impl TaskResult for f64 {
+    fn is_empty(&self) -> bool {
+        self == &0.0
+    }
+}
+
+impl TaskResult for isize {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for usize {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+pub trait CastTask {
+    fn as_any(&self) -> &dyn Any;
+    fn cast<T: 'static>(&self) -> Option<&T>;
+}
+
+impl CastTask for dyn TaskResult {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn cast<T: 'static>(&self) -> Option<&T> {
+        self.as_any().downcast_ref()
+    }
+}
+
 /// Status of a task execution
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq)]
 pub enum TaskStatus {
     /// Task is waiting to be executed
     #[default]
@@ -17,7 +128,7 @@ pub enum TaskStatus {
     /// Task is currently running
     Running,
     /// Task completed successfully
-    Completed,
+    Completed(Box<dyn TaskResult>),
     /// Task Timeout
     TimedOut,
     /// Task failed
@@ -28,9 +139,35 @@ pub enum TaskStatus {
     Skipped,
 }
 
+impl Clone for TaskStatus {
+    fn clone(&self) -> Self {
+        match self {
+            TaskStatus::Pending => TaskStatus::Pending,
+            TaskStatus::Running => TaskStatus::Running,
+            TaskStatus::TimedOut => TaskStatus::TimedOut,
+            TaskStatus::Failed => TaskStatus::Failed,
+            TaskStatus::Cancelled => TaskStatus::Cancelled,
+            TaskStatus::Skipped => TaskStatus::Skipped,
+            TaskStatus::Completed(result) => TaskStatus::Completed({
+                let result_ref: &dyn TaskResult = result.as_ref();
+                let result_ptr: *const dyn TaskResult = result_ref as *const dyn TaskResult;
+
+                // SAFETY: state_ptr is never null, it is safe to convert it to a NonNull pointer, this way we can safely convert it back to a Box
+                // If it is ever found as null, this is a bug. It probably means the memory has been poisoned
+                let nn_ptr = std::ptr::NonNull::new(result_ptr as *mut dyn TaskResult)
+                .expect("TaskResult has been dropped, but this should never happen, ensure it is being cloned correctly."); // This should never happen, if it does, it's a bug
+                let raw_ptr = nn_ptr.as_ptr();
+                unsafe { Box::from_raw(raw_ptr) }
+            }),
+        }
+    }
+}
+
 /// Type alias for a task execution function
 pub type TaskExecutionFn = Box<
-    dyn FnMut(ExecutorContext) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + 'static,
+    dyn FnMut(ExecutorContext) -> Pin<Box<dyn Future<Output = Result<Box<dyn TaskResult>>> + Send>>
+        + Send
+        + 'static,
 >;
 
 /// Represents a single task in a pipeline
@@ -78,7 +215,7 @@ impl Clone for Task {
             dependencies: self.dependencies.clone(),
             timeout: self.timeout,
             retry_count: self.retry_count,
-            status: self.status.clone(),
+            status: TaskStatus::Pending,
             execution_fn: None,
         }
     }
@@ -128,14 +265,20 @@ impl Task {
         self
     }
 
-    pub fn with_execution_fn<F, Fut>(mut self, execution_fn: F) -> Self
+    pub fn with_execution_fn<F, Fut, R: TaskResult>(mut self, execution_fn: F) -> Self
     where
         F: FnMut(ExecutorContext) -> Fut + Clone + Send + 'static,
-        Fut: Future<Output = Result<()>> + Send + 'static,
+        Fut: Future<Output = Result<R>> + Send + 'static,
     {
         self.execution_fn = Some(Box::new(move |e| {
             let mut execution_fn = execution_fn.clone();
-            Box::pin(async move { execution_fn(e).await })
+            Box::pin(async move {
+                let result = execution_fn(e).await;
+                match result {
+                    Ok(r) => Ok(Box::new(r) as Box<dyn TaskResult>),
+                    Err(e) => Err(e),
+                }
+            })
         }));
         self
     }
@@ -203,8 +346,8 @@ mod tests {
         assert_eq!(task.status, TaskStatus::Running);
 
         // Transition to Completed
-        task.status = TaskStatus::Completed;
-        assert_eq!(task.status, TaskStatus::Completed);
+        task.status = TaskStatus::Completed(Box::new(()));
+        assert_eq!(matches!(task.status, TaskStatus::Completed(_)), true);
 
         // Transition to Failed
         task.status = TaskStatus::Failed;

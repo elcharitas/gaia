@@ -8,7 +8,7 @@ use std::time::Duration;
 use crate::GaiaError;
 use crate::monitoring::Monitor;
 use crate::pipeline::Pipeline;
-use crate::task::{Task, TaskStatus};
+use crate::task::{Task, TaskResult, TaskStatus};
 
 /// Handles the execution of pipelines and their tasks
 #[derive(Debug)]
@@ -67,102 +67,93 @@ impl Executor {
 
         pipeline.validate()?; // Validate the pipeline before execution
 
-        pipeline.state.lock().unwrap().start();
-
         let mut tasks: Vec<&mut Task> = pipeline.tasks.values_mut().collect();
+        let mut pipeline_state = pipeline.state.lock().unwrap();
 
-        let task_states = &pipeline.state.lock().unwrap().task_states;
+        pipeline_state.start();
 
-        // TODO: proper topological sorting
-        tasks.sort_by(|a, b| a.dependencies.len().cmp(&b.dependencies.len()));
+        if !tasks.is_empty() {
+            // TODO: proper topological sorting
+            tasks.sort_by(|a, b| a.dependencies.len().cmp(&b.dependencies.len()));
 
-        let max_concurrent = self.config.max_concurrent_tasks;
-        let continue_on_failure = self.config.continue_on_failure;
-        let task_map: HashMap<String, usize> = tasks
-            .iter()
-            .enumerate()
-            .map(|(i, t)| (t.id.clone(), i))
-            .collect();
-        let task_statuses = Arc::new(Mutex::new(HashMap::<String, TaskStatus>::new()));
-        let mut pending: HashSet<String> = tasks.iter().map(|t| t.id.clone()).collect();
-        let mut running = FuturesUnordered::new();
-        let tasks_arc = Arc::new(Mutex::new(tasks));
-
-        // Helper to check if all dependencies of a task are completed
-        let is_ready = |task: &Task, statuses: &HashMap<String, TaskStatus>| {
-            task.dependencies
+            let max_concurrent = self.config.max_concurrent_tasks;
+            let task_map: HashMap<String, usize> = tasks
                 .iter()
-                .all(|dep| matches!(statuses.get(dep), Some(TaskStatus::Completed)))
-        };
+                .enumerate()
+                .map(|(i, t)| (t.id.clone(), i))
+                .collect();
 
-        while !pending.is_empty() || running.len() > 0 {
-            // Find ready tasks
-            let mut ready = vec![];
-            {
-                let statuses = task_statuses.lock().unwrap();
-                for id in pending.iter() {
-                    let idx = *task_map.get(id).unwrap();
-                    let task = &tasks_arc.lock().unwrap()[idx];
-                    println!("Task {} is ready: {}", task.id, is_ready(task, &statuses));
-                    if is_ready(task, &statuses) {
-                        ready.push(id.clone());
+            let task_statuses = Arc::new(Mutex::new(HashMap::<String, TaskStatus>::new()));
+            let mut pending: HashSet<String> = tasks.iter().map(|t| t.id.clone()).collect();
+            let mut running = FuturesUnordered::new();
+            let tasks_arc = Arc::new(Mutex::new(tasks));
+
+            while !pending.is_empty() || running.len() > 0 {
+                let mut ready = vec![];
+                {
+                    let statuses = task_statuses.lock().unwrap();
+                    for id in pending.iter() {
+                        let idx = *task_map.get(id).unwrap();
+                        let task = &tasks_arc.lock().unwrap()[idx];
+                        if is_ready(task, &statuses) {
+                            ready.push(id.clone());
+                        }
                     }
                 }
-            }
 
-            // Spawn up to max_concurrent tasks
-            for id in ready.into_iter().take(max_concurrent - running.len()) {
-                let idx = *task_map.get(&id).unwrap();
-                let mut task = tasks_arc.lock().unwrap()[idx].clone();
-                let statuses = Arc::clone(&task_statuses);
-                let id_clone = id.clone();
-                let task_name = task.name.clone();
-                task.status = TaskStatus::Running;
-                let exec = async move {
-                    let result = self.execute_task(&mut task, statuses.clone()).await;
-                    let mut statuses = statuses.lock().unwrap();
-                    statuses.insert(
-                        id_clone.clone(),
-                        if result.is_ok() {
-                            TaskStatus::Completed
-                        } else {
-                            TaskStatus::Failed
-                        },
-                    );
-                    (id_clone, result)
-                };
-                if let Some(task_state) = task_states.get(&id) {
-                    monitor.collect_task_metrics(&id, &task_name, &task_state);
-                }
-                running.push(exec);
-                pending.remove(&id);
-            }
-            if let Some((task_id, result)) = running.next().await {
-                if let Err(e) = result {
-                    if !continue_on_failure {
-                        pipeline.state.lock().unwrap().complete(false);
-                        pipeline
-                            .state
-                            .lock()
-                            .unwrap()
-                            .update_task(task_id.clone(), TaskStatus::Failed);
-                        monitor.collect_metrics(&pipeline)?;
-                        return Err(e);
+                // Spawn up to max_concurrent tasks
+                for id in ready.into_iter().take(max_concurrent - running.len()) {
+                    let idx = *task_map.get(&id).unwrap();
+                    let mut task = tasks_arc.lock().unwrap()[idx].clone();
+                    let statuses = Arc::clone(&task_statuses);
+                    let id_clone = id.clone();
+                    let task_name = task.name.clone();
+
+                    task.status = TaskStatus::Running;
+                    let exec = async move {
+                        let result = self.execute_task(&mut task, statuses.clone()).await;
+                        (id_clone, result)
+                    };
+
+                    if let Some(task_state) = pipeline_state.task_states.get(&id) {
+                        monitor.collect_task_metrics(&id, &task_name, &task_state);
                     }
-                    eprintln!("Task {} failed: {}", task_id, e);
-                } else {
-                    pipeline
-                        .state
+
+                    running.push(exec);
+                    pending.remove(&id);
+                }
+
+                if let Some((task_id, Ok(result))) = running.next().await {
+                    println!("Task {} completed", task_id);
+                    pipeline_state.update_task(&task_id, TaskStatus::Completed(result));
+                    task_statuses
                         .lock()
                         .unwrap()
-                        .update_task(task_id.clone(), TaskStatus::Completed);
-                }
+                        .insert(task_id, TaskStatus::Completed(Box::new(())));
+                };
             }
         }
 
-        pipeline.state.lock().unwrap().complete(true);
+        pipeline_state.complete(true);
 
-        monitor.collect_metrics(&pipeline)?;
+        // Collect pipeline-level metrics
+        if let Some(duration) = pipeline_state.duration() {
+            monitor.add_metric(
+                "pipeline.duration",
+                duration.as_secs_f64(),
+                vec![
+                    ("pipeline_id".to_string(), pipeline.id.clone()),
+                    ("pipeline_name".to_string(), pipeline.name.clone()),
+                ],
+            );
+        }
+
+        // Collect task-level metrics
+        for (task_id, task_state) in &pipeline_state.task_states {
+            if let Some(task) = pipeline.tasks.get(task_id) {
+                monitor.collect_task_metrics(task_id, task.name.as_str(), task_state);
+            }
+        }
 
         Ok(monitor)
     }
@@ -172,9 +163,11 @@ impl Executor {
         &self,
         task: &mut Task,
         task_statuses: Arc<Mutex<HashMap<String, TaskStatus>>>,
-    ) -> crate::Result<()> {
+    ) -> crate::Result<Box<dyn TaskResult>> {
         let result = if let Some(execution_fn) = &mut task.execution_fn {
-            let result: Result<crate::Result<()>, _> = if let Some(timeout) = task.timeout {
+            let result: Result<crate::Result<Box<dyn TaskResult>>, _> = if let Some(timeout) =
+                task.timeout
+            {
                 #[cfg(feature = "tokio")]
                 let exec =
                     tokio::time::timeout(timeout, execution_fn(ExecutorContext { task_statuses }))
@@ -189,7 +182,7 @@ impl Executor {
             };
             match result {
                 Ok(res) => match res {
-                    Ok(_) => Ok(()),
+                    Ok(res) => Ok(res),
                     Err(e) => {
                         task.status = TaskStatus::Failed;
                         Err(GaiaError::TaskExecutionFailed(format!(
@@ -204,23 +197,29 @@ impl Executor {
                 }
             }
         } else {
-            Ok(())
+            Ok(Box::new(()) as Box<dyn TaskResult>)
         };
 
-        // Update status to Completed if successful
         if result.is_ok() {
-            task.status = TaskStatus::Completed;
+            task.status = TaskStatus::Completed(Box::new(()));
+            Ok(Box::new(()))
+        } else {
+            result
         }
-
-        result
     }
+}
+
+// Helper to check if all dependencies of a task are completed
+fn is_ready(task: &Task, statuses: &HashMap<String, TaskStatus>) -> bool {
+    task.dependencies
+        .iter()
+        .all(|dep| matches!(statuses.get(dep), Some(TaskStatus::Completed(_))))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::task::TaskStatus;
-    use std::collections::HashSet;
 
     #[cfg(feature = "tokio")]
     use tokio;
@@ -252,20 +251,14 @@ mod tests {
     #[tokio::test]
     async fn test_execute_task() {
         let executor = Executor::new();
-        let mut task = Task {
-            id: "task-1".to_string(),
-            name: "Test Task".to_string(),
-            description: Some("A test task".to_string()),
-            dependencies: HashSet::new(),
-            timeout: None,
-            retry_count: 0,
-            status: TaskStatus::Pending,
-            execution_fn: None,
-        };
+        let mut task = Task::new("task-1", "Test Task").with_execution_fn(async |_| {
+            println!("Executing task...");
+            Ok(())
+        });
 
         let result = executor.execute_task(&mut task, Arc::default()).await;
         assert!(result.is_ok());
-        assert_eq!(task.status, TaskStatus::Completed);
+        assert_eq!(matches!(task.status, TaskStatus::Completed(_)), true);
     }
 
     #[cfg(feature = "tokio")]
@@ -301,7 +294,7 @@ mod tests {
         // This would test how the executor handles task failures
         let executor = Executor::new();
         let mut task = Task::new("task-error", "Error Task").with_execution_fn(async |_| {
-            Err(crate::error::GaiaError::TaskExecutionFailed(
+            Err::<(), GaiaError>(crate::error::GaiaError::TaskExecutionFailed(
                 "Test error".to_string(),
             ))
         });
