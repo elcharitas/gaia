@@ -23,7 +23,7 @@ pub struct ExecutorContext {
 
 impl ExecutorContext {
     pub fn task_status(&self, task_id: &str) -> Option<TaskStatus> {
-        self.task_statuses.lock().unwrap().get(task_id).cloned()
+        self.task_statuses.lock().unwrap().remove(task_id)
     }
 }
 
@@ -135,7 +135,7 @@ impl Executor {
                             .state
                             .lock()
                             .unwrap()
-                            .update_task(task_id.clone(), TaskStatus::Completed(res));
+                            .update_task(task_id.clone(), TaskStatus::Completed(Box::new(res)));
                     }
                     Err(e) => {
                         if !continue_on_failure {
@@ -202,7 +202,7 @@ impl Executor {
         };
 
         if result.is_ok() {
-            task.status = TaskStatus::Completed(result.unwrap());
+            task.status = TaskStatus::Completed(Box::new(()));
             Ok(())
         } else {
             result
@@ -252,7 +252,7 @@ mod tests {
 
         let result = executor.execute_task(&mut task, Arc::default()).await;
         assert!(result.is_ok());
-        assert_eq!(task.status, TaskStatus::Completed(result.unwrap()));
+        assert_eq!(task.status, TaskStatus::Completed(Box::new(())));
     }
 
     #[cfg(feature = "tokio")]

@@ -1,5 +1,7 @@
 //! Task definition and execution
 
+use std::any::Any;
+use std::fmt::Debug;
 use std::future::Future;
 use std::time::Duration;
 use std::{collections::HashSet, pin::Pin};
@@ -8,8 +10,26 @@ use crate::Result;
 use crate::executor::ExecutorContext;
 use serde::{Deserialize, Serialize};
 
+pub trait TaskResult: Debug + Any + Send + 'static {
+    fn is_empty(&self) -> bool {
+        false
+    }
+}
+
+impl PartialEq for dyn TaskResult {
+    fn eq(&self, _: &Self) -> bool {
+        false
+    }
+}
+
+impl TaskResult for () {
+    fn is_empty(&self) -> bool {
+        true
+    }
+}
+
 /// Status of a task execution
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq)]
 pub enum TaskStatus {
     /// Task is waiting to be executed
     #[default]
@@ -17,7 +37,7 @@ pub enum TaskStatus {
     /// Task is currently running
     Running,
     /// Task completed successfully
-    Completed(()),
+    Completed(Box<dyn TaskResult>),
     /// Task Timeout
     TimedOut,
     /// Task failed
@@ -78,7 +98,7 @@ impl Clone for Task {
             dependencies: self.dependencies.clone(),
             timeout: self.timeout,
             retry_count: self.retry_count,
-            status: self.status.clone(),
+            status: TaskStatus::Pending,
             execution_fn: None,
         }
     }
@@ -203,8 +223,8 @@ mod tests {
         assert_eq!(task.status, TaskStatus::Running);
 
         // Transition to Completed
-        task.status = TaskStatus::Completed(());
-        assert_eq!(task.status, TaskStatus::Completed(()));
+        task.status = TaskStatus::Completed(Box::new(()));
+        assert_eq!(task.status, TaskStatus::Completed(Box::new(())));
 
         // Transition to Failed
         task.status = TaskStatus::Failed;
