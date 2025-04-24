@@ -165,7 +165,9 @@ impl Clone for TaskStatus {
 
 /// Type alias for a task execution function
 pub type TaskExecutionFn = Box<
-    dyn FnMut(ExecutorContext) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + 'static,
+    dyn FnMut(ExecutorContext) -> Pin<Box<dyn Future<Output = Result<Box<dyn TaskResult>>> + Send>>
+        + Send
+        + 'static,
 >;
 
 /// Represents a single task in a pipeline
@@ -263,14 +265,20 @@ impl Task {
         self
     }
 
-    pub fn with_execution_fn<F, Fut>(mut self, execution_fn: F) -> Self
+    pub fn with_execution_fn<F, Fut, R: TaskResult>(mut self, execution_fn: F) -> Self
     where
         F: FnMut(ExecutorContext) -> Fut + Clone + Send + 'static,
-        Fut: Future<Output = Result<()>> + Send + 'static,
+        Fut: Future<Output = Result<R>> + Send + 'static,
     {
         self.execution_fn = Some(Box::new(move |e| {
             let mut execution_fn = execution_fn.clone();
-            Box::pin(async move { execution_fn(e).await })
+            Box::pin(async move {
+                let result = execution_fn(e).await;
+                match result {
+                    Ok(r) => Ok(Box::new(r) as Box<dyn TaskResult>),
+                    Err(e) => Err(e),
+                }
+            })
         }));
         self
     }

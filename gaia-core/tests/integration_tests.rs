@@ -10,13 +10,30 @@ use tokio;
 #[cfg(feature = "tokio")]
 #[tokio::test]
 async fn test_pipeline_execution_with_dependencies() {
+    use gaia_core::task::{CastTask, TaskStatus};
+
     let executor = Executor::new();
     let mut pipeline = Pipeline::new("pipeline-deps", "Pipeline with Dependencies");
 
-    let task1 = Task::new("task-1", "First Task");
+    let task1 = Task::new("task-1", "First Task").with_execution_fn(async |_| Ok(2));
     pipeline.add_task(task1).unwrap();
 
-    let task2 = Task::new("task-2", "Second Task").add_dependency("task-1");
+    let task2 = Task::new("task-2", "Second Task")
+        .add_dependency("task-1")
+        .with_execution_fn(async |ctx| {
+            match ctx.task_status("task-1") {
+                Some(result) => match result {
+                    TaskStatus::Completed(value) => {
+                        let value = value.cast::<i32>();
+                        assert_eq!(value, Some(&2));
+                    }
+                    _ => panic!("Dependency task result not as expected"),
+                },
+                _ => panic!("Dependency task result not as expected"),
+            }
+
+            Ok(3)
+        });
     pipeline.add_task(task2).unwrap();
 
     let result = executor.execute_pipeline(pipeline).await;

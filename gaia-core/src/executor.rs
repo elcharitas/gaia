@@ -8,7 +8,7 @@ use std::time::Duration;
 use crate::GaiaError;
 use crate::monitoring::Monitor;
 use crate::pipeline::Pipeline;
-use crate::task::{Task, TaskStatus};
+use crate::task::{Task, TaskResult, TaskStatus};
 
 /// Handles the execution of pipelines and their tasks
 #[derive(Debug)]
@@ -70,6 +70,12 @@ impl Executor {
         pipeline.state.lock().unwrap().start();
 
         let mut tasks: Vec<&mut Task> = pipeline.tasks.values_mut().collect();
+
+        if tasks.is_empty() {
+            pipeline.state.lock().unwrap().complete(true);
+            monitor.collect_metrics(&pipeline)?;
+            return Ok(monitor);
+        }
 
         let task_states = &pipeline.state.lock().unwrap().task_states;
 
@@ -135,7 +141,7 @@ impl Executor {
                             .state
                             .lock()
                             .unwrap()
-                            .update_task(task_id.clone(), TaskStatus::Completed(Box::new(res)));
+                            .update_task(task_id.clone(), TaskStatus::Completed(res));
                     }
                     Err(e) => {
                         if !continue_on_failure {
@@ -166,9 +172,11 @@ impl Executor {
         &self,
         task: &mut Task,
         task_statuses: Arc<Mutex<HashMap<String, TaskStatus>>>,
-    ) -> crate::Result<()> {
+    ) -> crate::Result<Box<dyn TaskResult>> {
         let result = if let Some(execution_fn) = &mut task.execution_fn {
-            let result: Result<crate::Result<()>, _> = if let Some(timeout) = task.timeout {
+            let result: Result<crate::Result<Box<dyn TaskResult>>, _> = if let Some(timeout) =
+                task.timeout
+            {
                 #[cfg(feature = "tokio")]
                 let exec =
                     tokio::time::timeout(timeout, execution_fn(ExecutorContext { task_statuses }))
@@ -198,12 +206,12 @@ impl Executor {
                 }
             }
         } else {
-            Ok(())
+            Ok(Box::new(()) as Box<dyn TaskResult>)
         };
 
         if result.is_ok() {
             task.status = TaskStatus::Completed(Box::new(()));
-            Ok(())
+            Ok(Box::new(()))
         } else {
             result
         }
@@ -252,7 +260,7 @@ mod tests {
 
         let result = executor.execute_task(&mut task, Arc::default()).await;
         assert!(result.is_ok());
-        assert_eq!(task.status, TaskStatus::Completed(Box::new(())));
+        assert_eq!(matches!(task.status, TaskStatus::Completed(_)), true);
     }
 
     #[cfg(feature = "tokio")]
@@ -288,7 +296,7 @@ mod tests {
         // This would test how the executor handles task failures
         let executor = Executor::new();
         let mut task = Task::new("task-error", "Error Task").with_execution_fn(async |_| {
-            Err(crate::error::GaiaError::TaskExecutionFailed(
+            Err::<(), GaiaError>(crate::error::GaiaError::TaskExecutionFailed(
                 "Test error".to_string(),
             ))
         });
