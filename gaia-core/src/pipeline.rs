@@ -21,6 +21,9 @@ pub struct Pipeline {
     /// Description of what the pipeline does
     pub description: Option<String>,
 
+    /// Cron schedule expression for the pipeline
+    pub schedule: Option<String>,
+
     /// Tasks that make up the pipeline
     pub tasks: HashMap<String, Task>,
 
@@ -42,6 +45,7 @@ impl Pipeline {
             id: id.into(),
             name: name.into(),
             description: None,
+            schedule: None,
             tasks: HashMap::new(),
             state: Arc::new(Mutex::new(PipelineState::new())),
         }
@@ -68,6 +72,12 @@ impl Pipeline {
     /// Set the description for this pipeline
     pub fn with_description(mut self, description: impl Into<String>) -> Self {
         self.description = Some(description.into());
+        self
+    }
+
+    /// Set the cron schedule for this pipeline
+    pub fn with_schedule(mut self, schedule: impl Into<String>) -> Self {
+        self.schedule = Some(schedule.into());
         self
     }
 

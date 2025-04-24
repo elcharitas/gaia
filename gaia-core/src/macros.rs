@@ -3,7 +3,7 @@
 #[macro_export]
 macro_rules! pipeline {
     (
-        $pipeline_id:ident$(:$parent_pipeline:ident)?, $pipeline_name:expr => {
+        $pipeline_id:ident$(:$parent_pipeline:ident)? $(, $pipeline_name:literal)? $(, schedule: $schedule:expr)? => {
             $( $task_id:ident: {
                 name: $task_name:expr,
                 $( description: $task_desc:expr, )?
@@ -14,8 +14,14 @@ macro_rules! pipeline {
             } ),* $(,)?
         }
     ) => {{
-        let mut $pipeline_id = $crate::Pipeline::new(stringify!($pipeline_id), $pipeline_name);
+        let mut $pipeline_id = $crate::Pipeline::new(stringify!($pipeline_id), {
+            #[allow(unused_mut, unused_assignments)]
+            let mut name = stringify!($pipeline_id);
+            $(name = $pipeline_name;)?
+            name
+        });
         $(let _ = $pipeline_id.extend($parent_pipeline);)?
+        $($pipeline_id = $pipeline_id.with_schedule($schedule);)?
         $(
             #[allow(unused_mut)]
             let $task_id = $crate::Task::new(stringify!($task_id).to_string(), $task_name)
@@ -28,29 +34,6 @@ macro_rules! pipeline {
         )*
         $pipeline_id
     }};
-    (
-        $pipeline_id:ident$(:$parent_pipeline:ident)? => {
-            $( $task_id:ident: {
-                name: $task_name:expr,
-                $( description: $task_desc:expr, )?
-                $( dependencies: [ $( $dep:ident ),* $(,)? ], )?
-                $( timeout: $timeout:expr, )?
-                $( retry_count: $retry:expr, )?
-                handler: $exec_fn:expr $(,)?
-            } ),* $(,)?
-        }
-    ) => {
-        pipeline!($pipeline_id$(:$parent_pipeline)?, "" => {
-            $($task_id: {
-                name: $task_name,
-                $( description: $task_desc, )?
-                $( dependencies: [ $( $dep ),* ], )?
-                $( timeout: $timeout, )?
-                $( retry_count: $retry, )?
-                handler: $exec_fn,
-            }),*
-        })
-    };
 }
 
 #[cfg(test)]
@@ -102,11 +85,49 @@ mod tests {
             }
         );
         assert_eq!(pipeline.id, "test_pipeline");
-        assert_eq!(pipeline.name, ""); // Empty string as default
+        assert_eq!(pipeline.name, "test_pipeline");
         assert_eq!(pipeline.tasks.len(), 1);
         assert!(pipeline.tasks.contains_key("task1"));
         let task1 = pipeline.tasks.get("task1").unwrap();
         assert_eq!(task1.name, "Task 1");
         assert_eq!(task1.status, TaskStatus::Pending);
+    }
+
+    #[test]
+    fn test_define_pipeline_macro_with_schedule() {
+        let pipeline = pipeline!(
+            test_pipeline, "Test Pipeline", schedule: "0 0 * * *" => {
+                task1: {
+                    name: "Task 1",
+                    handler:  async |_| {
+                        Ok(())
+                    },
+                },
+            }
+        );
+        assert_eq!(pipeline.id, "test_pipeline");
+        assert_eq!(pipeline.name, "Test Pipeline");
+        assert_eq!(pipeline.schedule, Some("0 0 * * *".to_string()));
+        assert_eq!(pipeline.tasks.len(), 1);
+        assert!(pipeline.tasks.contains_key("task1"));
+    }
+
+    #[test]
+    fn test_define_pipeline_macro_with_schedule_without_name() {
+        let pipeline = pipeline!(
+            test_pipeline, schedule: "0 0 * * *" => {
+                task1: {
+                    name: "Task 1",
+                    handler:  async |_| {
+                        Ok(())
+                    },
+                },
+            }
+        );
+        assert_eq!(pipeline.id, "test_pipeline");
+        assert_eq!(pipeline.name, "test_pipeline");
+        assert_eq!(pipeline.schedule, Some("0 0 * * *".to_string()));
+        assert_eq!(pipeline.tasks.len(), 1);
+        assert!(pipeline.tasks.contains_key("task1"));
     }
 }
