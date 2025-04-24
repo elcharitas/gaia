@@ -63,6 +63,12 @@ pub struct Task {
     pub execution_fn: Option<TaskExecutionFn>,
 }
 
+impl PartialEq for Task {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
 impl Clone for Task {
     fn clone(&self) -> Self {
         Self {

@@ -6,6 +6,7 @@ use gaia_core::Result;
 use gaia_core::error::GaiaError;
 use gaia_core::executor::Executor;
 use gaia_core::pipeline;
+use gaia_core::task::TaskStatus;
 
 use rand::Rng;
 
@@ -54,10 +55,14 @@ async fn main() -> Result<()> {
                 description: "Load transformed data to destination",
                 dependencies: [transform],
                 timeout: Duration::from_secs(10),
-                handler: async |_| {
-                    println!("📥 Loading data to destination...");
-                    tokio::time::sleep(Duration::from_secs(1)).await;
-                    println!("✅ Data loading complete");
+                handler: async |context| {
+                    if let Some(transform_status) = context.task_status("transform") {
+                        if transform_status == TaskStatus::Completed {
+                            println!("📥 Loading data to destination...");
+                            tokio::time::sleep(Duration::from_secs(1)).await;
+                            println!("✅ Data loading complete");
+                        }
+                    }
                     Ok(())
                 },
             },

@@ -71,6 +71,8 @@ impl Executor {
 
         let mut tasks: Vec<&mut Task> = pipeline.tasks.values_mut().collect();
 
+        let task_states = &pipeline.state.lock().unwrap().task_states;
+
         // TODO: proper topological sorting
         tasks.sort_by(|a, b| a.dependencies.len().cmp(&b.dependencies.len()));
 
@@ -101,17 +103,21 @@ impl Executor {
                 for id in pending.iter() {
                     let idx = *task_map.get(id).unwrap();
                     let task = &tasks_arc.lock().unwrap()[idx];
+                    println!("Task {} is ready: {}", task.id, is_ready(task, &statuses));
                     if is_ready(task, &statuses) {
                         ready.push(id.clone());
                     }
                 }
             }
+
             // Spawn up to max_concurrent tasks
             for id in ready.into_iter().take(max_concurrent - running.len()) {
                 let idx = *task_map.get(&id).unwrap();
                 let mut task = tasks_arc.lock().unwrap()[idx].clone();
                 let statuses = Arc::clone(&task_statuses);
                 let id_clone = id.clone();
+                let task_name = task.name.clone();
+                task.status = TaskStatus::Running;
                 let exec = async move {
                     let result = self.execute_task(&mut task, statuses.clone()).await;
                     let mut statuses = statuses.lock().unwrap();
@@ -125,6 +131,9 @@ impl Executor {
                     );
                     (id_clone, result)
                 };
+                if let Some(task_state) = task_states.get(&id) {
+                    monitor.collect_task_metrics(&id, &task_name, &task_state);
+                }
                 running.push(exec);
                 pending.remove(&id);
             }
@@ -164,9 +173,6 @@ impl Executor {
         task: &mut Task,
         task_statuses: Arc<Mutex<HashMap<String, TaskStatus>>>,
     ) -> crate::Result<()> {
-        // Execute the task using the Runnable trait
-        task.status = TaskStatus::Running;
-
         let result = if let Some(execution_fn) = &mut task.execution_fn {
             let result: Result<crate::Result<()>, _> = if let Some(timeout) = task.timeout {
                 #[cfg(feature = "tokio")]

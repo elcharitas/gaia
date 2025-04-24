@@ -65,7 +65,12 @@ impl Monitor {
     }
 
     /// Collect metrics for a specific task
-    fn collect_task_metrics(&mut self, task_id: &str, task_name: &str, state: &TaskState) {
+    pub(super) fn collect_task_metrics(
+        &mut self,
+        task_id: &str,
+        task_name: &str,
+        state: &TaskState,
+    ) {
         // Add task status metric
         let status_value = match state.status {
             TaskStatus::Pending => 0.0,
