@@ -20,18 +20,20 @@ macro_rules! pipeline {
             $(name = $pipeline_name;)?
             name
         });
-        $(let _ = $pipeline_id.extend($parent_pipeline);)?
-        $($pipeline_id = $pipeline_id.with_schedule($schedule);)?
-        $(
-            #[allow(unused_mut)]
-            let $task_id = $crate::Task::new(stringify!($task_id).to_string(), $task_name)
-                $(.with_description($task_desc.to_string()))?
-                $($(.add_dependency(stringify!($dep).to_string()))*)?
-                $(.with_timeout($timeout))?
-                $(.with_retry_count($retry))?
-                .with_execution_fn($exec_fn);
-            $pipeline_id.add_task($task_id).unwrap();
-        )*
+        {
+            $(let _ = $pipeline_id.extend($parent_pipeline);)?
+            $($pipeline_id = $pipeline_id.with_schedule($schedule);)?
+            $(
+                #[allow(unused_mut)]
+                let $task_id = $crate::Task::new(stringify!($task_id).to_string(), $task_name)
+                    $(.with_description($task_desc.to_string()))?
+                    $($(.add_dependency(stringify!($dep).to_string()))*)?
+                    $(.with_timeout($timeout))?
+                    $(.with_retry_count($retry))?
+                    .with_execution_fn($exec_fn);
+                $pipeline_id.add_task($task_id).unwrap();
+            )*
+        }
         $pipeline_id
     }};
 }
