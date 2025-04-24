@@ -201,7 +201,12 @@ impl Executor {
             Ok(())
         };
 
-        result
+        if result.is_ok() {
+            task.status = TaskStatus::Completed(result.unwrap());
+            Ok(())
+        } else {
+            result
+        }
     }
 }
 

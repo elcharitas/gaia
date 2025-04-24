@@ -104,6 +104,15 @@ impl PipelineState {
             }
             _ => {}
         }
-        task_state.status = status;
+        match status {
+            TaskStatus::Completed(res) => {
+                if res != () {
+                    task_state.status = status;
+                }
+            }
+            _ => {
+                task_state.status = status;
+            }
+        }
     }
 }
