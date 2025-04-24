@@ -127,7 +127,6 @@ impl Pipeline {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::task::TaskStatus;
     use std::collections::HashSet;
 
     #[test]
@@ -149,16 +148,7 @@ mod tests {
     #[test]
     fn test_add_task() {
         let mut pipeline = Pipeline::new("pipeline-1", "Test Pipeline");
-        let task = Task {
-            id: "task-1".to_string(),
-            name: "Test Task".to_string(),
-            description: Some("A test task".to_string()),
-            dependencies: HashSet::new(),
-            timeout: None,
-            retry_count: 0,
-            status: TaskStatus::Pending,
-            execution_fn: None,
-        };
+        let task = Task::new("task-1", "Test Task").with_description("A test task");
 
         let result = pipeline.add_task(task);
         assert!(result.is_ok());
@@ -169,16 +159,7 @@ mod tests {
     #[test]
     fn test_get_task() {
         let mut pipeline = Pipeline::new("pipeline-1", "Test Pipeline");
-        let task = Task {
-            id: "task-1".to_string(),
-            name: "Test Task".to_string(),
-            description: Some("A test task".to_string()),
-            dependencies: HashSet::new(),
-            timeout: None,
-            retry_count: 0,
-            status: TaskStatus::Pending,
-            execution_fn: None,
-        };
+        let task = Task::new("task-1", "Test Task").with_description("A test task");
 
         pipeline.add_task(task).unwrap();
 
@@ -199,16 +180,8 @@ mod tests {
 
         // Add multiple tasks
         for i in 1..=3 {
-            let task = Task {
-                id: format!("task-{}", i),
-                name: format!("Test Task {}", i),
-                description: Some(format!("A test task {}", i)),
-                dependencies: HashSet::new(),
-                timeout: None,
-                retry_count: 0,
-                status: TaskStatus::Pending,
-                execution_fn: None,
-            };
+            let task = Task::new(format!("task-{}", i), format!("Test Task {}", i))
+                .with_description(format!("A test task {}", i));
             pipeline.add_task(task).unwrap();
         }
 
@@ -223,31 +196,15 @@ mod tests {
         let mut pipeline = Pipeline::new("pipeline-1", "Test Pipeline");
 
         // Add first task
-        let task1 = Task {
-            id: "task-1".to_string(),
-            name: "Test Task 1".to_string(),
-            description: Some("A test task 1".to_string()),
-            dependencies: HashSet::new(),
-            timeout: None,
-            retry_count: 0,
-            status: TaskStatus::Pending,
-            execution_fn: None,
-        };
+        let task1 = Task::new("task-1", "Test Task 1").with_description("A test task 1");
         pipeline.add_task(task1).unwrap();
 
         // Add second task with dependency on first
         let mut deps = HashSet::new();
         deps.insert("task-1".to_string());
-        let task2 = Task {
-            id: "task-2".to_string(),
-            name: "Test Task 2".to_string(),
-            description: Some("A test task 2".to_string()),
-            dependencies: deps,
-            timeout: None,
-            retry_count: 0,
-            status: TaskStatus::Pending,
-            execution_fn: None,
-        };
+        let task2 = Task::new("task-2", "Test Task 2")
+            .with_description("A test task 2")
+            .with_dependencies(deps);
         pipeline.add_task(task2).unwrap();
 
         // Verify dependency relationship
