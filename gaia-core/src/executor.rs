@@ -23,7 +23,7 @@ pub struct ExecutorContext {
 
 impl ExecutorContext {
     pub fn task_status(&self, task_id: &str) -> Option<TaskStatus> {
-        self.task_statuses.lock().unwrap().remove(task_id)
+        self.task_statuses.lock().unwrap().get(task_id).cloned()
     }
 }
 

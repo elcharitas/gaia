@@ -139,6 +139,30 @@ pub enum TaskStatus {
     Skipped,
 }
 
+impl Clone for TaskStatus {
+    fn clone(&self) -> Self {
+        match self {
+            TaskStatus::Pending => TaskStatus::Pending,
+            TaskStatus::Running => TaskStatus::Running,
+            TaskStatus::TimedOut => TaskStatus::TimedOut,
+            TaskStatus::Failed => TaskStatus::Failed,
+            TaskStatus::Cancelled => TaskStatus::Cancelled,
+            TaskStatus::Skipped => TaskStatus::Skipped,
+            TaskStatus::Completed(result) => TaskStatus::Completed({
+                let result_ref: &dyn TaskResult = result.as_ref();
+                let result_ptr: *const dyn TaskResult = result_ref as *const dyn TaskResult;
+
+                // SAFETY: state_ptr is never null, it is safe to convert it to a NonNull pointer, this way we can safely convert it back to a Box
+                // If it is ever found as null, this is a bug. It probably means the memory has been poisoned
+                let nn_ptr = std::ptr::NonNull::new(result_ptr as *mut dyn TaskResult)
+                .expect("TaskResult has been dropped, but this should never happen, ensure it is being cloned correctly."); // This should never happen, if it does, it's a bug
+                let raw_ptr = nn_ptr.as_ptr();
+                unsafe { Box::from_raw(raw_ptr) }
+            }),
+        }
+    }
+}
+
 /// Type alias for a task execution function
 pub type TaskExecutionFn = Box<
     dyn FnMut(ExecutorContext) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> + Send + 'static,
