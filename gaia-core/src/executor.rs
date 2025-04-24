@@ -92,7 +92,7 @@ impl Executor {
         let is_ready = |task: &Task, statuses: &HashMap<String, TaskStatus>| {
             task.dependencies
                 .iter()
-                .all(|dep| matches!(statuses.get(dep), Some(TaskStatus::Completed)))
+                .all(|dep| matches!(statuses.get(dep), Some(TaskStatus::Completed(_))))
         };
 
         while !pending.is_empty() || running.len() > 0 {
@@ -120,15 +120,6 @@ impl Executor {
                 task.status = TaskStatus::Running;
                 let exec = async move {
                     let result = self.execute_task(&mut task, statuses.clone()).await;
-                    let mut statuses = statuses.lock().unwrap();
-                    statuses.insert(
-                        id_clone.clone(),
-                        if result.is_ok() {
-                            TaskStatus::Completed
-                        } else {
-                            TaskStatus::Failed
-                        },
-                    );
                     (id_clone, result)
                 };
                 if let Some(task_state) = task_states.get(&id) {
@@ -138,24 +129,27 @@ impl Executor {
                 pending.remove(&id);
             }
             if let Some((task_id, result)) = running.next().await {
-                if let Err(e) = result {
-                    if !continue_on_failure {
-                        pipeline.state.lock().unwrap().complete(false);
+                match result {
+                    Ok(res) => {
                         pipeline
                             .state
                             .lock()
                             .unwrap()
-                            .update_task(task_id.clone(), TaskStatus::Failed);
-                        monitor.collect_metrics(&pipeline)?;
-                        return Err(e);
+                            .update_task(task_id.clone(), TaskStatus::Completed(res));
                     }
-                    eprintln!("Task {} failed: {}", task_id, e);
-                } else {
-                    pipeline
-                        .state
-                        .lock()
-                        .unwrap()
-                        .update_task(task_id.clone(), TaskStatus::Completed);
+                    Err(e) => {
+                        if !continue_on_failure {
+                            pipeline.state.lock().unwrap().complete(false);
+                            pipeline
+                                .state
+                                .lock()
+                                .unwrap()
+                                .update_task(task_id.clone(), TaskStatus::Failed);
+                            monitor.collect_metrics(&pipeline)?;
+                            return Err(e);
+                        }
+                        eprintln!("Task {} failed: {}", task_id, e);
+                    }
                 }
             }
         }
@@ -189,7 +183,7 @@ impl Executor {
             };
             match result {
                 Ok(res) => match res {
-                    Ok(_) => Ok(()),
+                    Ok(res) => Ok(res),
                     Err(e) => {
                         task.status = TaskStatus::Failed;
                         Err(GaiaError::TaskExecutionFailed(format!(
@@ -207,11 +201,6 @@ impl Executor {
             Ok(())
         };
 
-        // Update status to Completed if successful
-        if result.is_ok() {
-            task.status = TaskStatus::Completed;
-        }
-
         result
     }
 }
@@ -220,7 +209,6 @@ impl Executor {
 mod tests {
     use super::*;
     use crate::task::TaskStatus;
-    use std::collections::HashSet;
 
     #[cfg(feature = "tokio")]
     use tokio;
@@ -252,20 +240,14 @@ mod tests {
     #[tokio::test]
     async fn test_execute_task() {
         let executor = Executor::new();
-        let mut task = Task {
-            id: "task-1".to_string(),
-            name: "Test Task".to_string(),
-            description: Some("A test task".to_string()),
-            dependencies: HashSet::new(),
-            timeout: None,
-            retry_count: 0,
-            status: TaskStatus::Pending,
-            execution_fn: None,
-        };
+        let mut task = Task::new("task-1", "Test Task").with_execution_fn(async |_| {
+            println!("Executing task...");
+            Ok(())
+        });
 
         let result = executor.execute_task(&mut task, Arc::default()).await;
         assert!(result.is_ok());
-        assert_eq!(task.status, TaskStatus::Completed);
+        assert_eq!(task.status, TaskStatus::Completed(result.unwrap()));
     }
 
     #[cfg(feature = "tokio")]

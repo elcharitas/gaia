@@ -97,7 +97,7 @@ impl PipelineState {
             TaskStatus::Running if task_state.start_time.is_none() => {
                 task_state.start_time = Some(Instant::now().elapsed().as_millis() as u64);
             }
-            TaskStatus::Completed | TaskStatus::Failed | TaskStatus::Cancelled => {
+            TaskStatus::Completed(_) | TaskStatus::Failed | TaskStatus::Cancelled => {
                 if task_state.end_time.is_none() {
                     task_state.end_time = Some(Instant::now().elapsed().as_millis() as u64);
                 }

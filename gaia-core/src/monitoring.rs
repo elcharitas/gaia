@@ -75,7 +75,7 @@ impl Monitor {
         let status_value = match state.status {
             TaskStatus::Pending => 0.0,
             TaskStatus::Running => 1.0,
-            TaskStatus::Completed => 2.0,
+            TaskStatus::Completed(_) => 2.0,
             TaskStatus::Failed => 3.0,
             TaskStatus::TimedOut => 4.0,
             TaskStatus::Skipped => 5.0,

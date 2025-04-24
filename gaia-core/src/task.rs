@@ -17,7 +17,7 @@ pub enum TaskStatus {
     /// Task is currently running
     Running,
     /// Task completed successfully
-    Completed,
+    Completed(()),
     /// Task Timeout
     TimedOut,
     /// Task failed
@@ -203,8 +203,8 @@ mod tests {
         assert_eq!(task.status, TaskStatus::Running);
 
         // Transition to Completed
-        task.status = TaskStatus::Completed;
-        assert_eq!(task.status, TaskStatus::Completed);
+        task.status = TaskStatus::Completed(());
+        assert_eq!(task.status, TaskStatus::Completed(()));
 
         // Transition to Failed
         task.status = TaskStatus::Failed;

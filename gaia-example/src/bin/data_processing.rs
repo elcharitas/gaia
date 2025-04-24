@@ -56,12 +56,13 @@ async fn main() -> Result<()> {
                 dependencies: [transform],
                 timeout: Duration::from_secs(10),
                 handler: async |context| {
-                    if let Some(transform_status) = context.task_status("transform") {
-                        if transform_status == TaskStatus::Completed {
+                    match context.task_status("transform") {
+                        Some(TaskStatus::Completed(_)) => {
                             println!("📥 Loading data to destination...");
                             tokio::time::sleep(Duration::from_secs(1)).await;
                             println!("✅ Data loading complete");
                         }
+                        _=>{}
                     }
                     Ok(())
                 },
