@@ -347,7 +347,7 @@ mod tests {
 
         // Transition to Completed
         task.status = TaskStatus::Completed(Box::new(()));
-        assert_eq!(task.status, TaskStatus::Completed(Box::new(())));
+        assert_eq!(matches!(task.status, TaskStatus::Completed(_)), true);
 
         // Transition to Failed
         task.status = TaskStatus::Failed;
