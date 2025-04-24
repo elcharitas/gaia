@@ -28,6 +28,97 @@ impl TaskResult for () {
     }
 }
 
+impl TaskResult for String {
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+}
+impl TaskResult for Vec<u8> {
+    fn is_empty(&self) -> bool {
+        self.is_empty()
+    }
+}
+
+impl TaskResult for bool {
+    fn is_empty(&self) -> bool {
+        false
+    }
+}
+
+impl TaskResult for i32 {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for i64 {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for i128 {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for u32 {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for u64 {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for u128 {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for f32 {
+    fn is_empty(&self) -> bool {
+        self == &0.0
+    }
+}
+
+impl TaskResult for f64 {
+    fn is_empty(&self) -> bool {
+        self == &0.0
+    }
+}
+
+impl TaskResult for isize {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+impl TaskResult for usize {
+    fn is_empty(&self) -> bool {
+        self == &0
+    }
+}
+
+pub trait CastTask {
+    fn as_any(&self) -> &dyn Any;
+    fn cast<T: 'static>(&self) -> Option<&T>;
+}
+
+impl CastTask for dyn TaskResult {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn cast<T: 'static>(&self) -> Option<&T> {
+        self.as_any().downcast_ref()
+    }
+}
+
 /// Status of a task execution
 #[derive(Debug, Default, PartialEq)]
 pub enum TaskStatus {
