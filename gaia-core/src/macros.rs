@@ -31,7 +31,13 @@ macro_rules! pipeline {
                 let $task_id = $crate::Task::new(stringify!($task_id).to_string(), $task_name)
                     $(.with_description($task_desc.to_string()))?
                     $($(.add_dependency(stringify!($dep).to_string()))*)?
-                    $(.with_timeout($timeout))?
+                    $(.with_timeout({
+                        macro_rules! process_timeout {
+                            ($t:literal) => { std::time::Duration::from_secs($t) };
+                            ($t:expr) => { $t };
+                        }
+                        process_timeout!($timeout)
+                    }))?
                     $(.with_retry_count($retry))?
                     .with_execution_fn($exec_fn);
                 $pipeline_id.add_task($task_id).unwrap();
@@ -134,5 +140,44 @@ mod tests {
         assert_eq!(pipeline.schedule, Some("0 0 * * *".to_string()));
         assert_eq!(pipeline.tasks.len(), 1);
         assert!(pipeline.tasks.contains_key("task1"));
+    }
+
+    #[test]
+    fn test_define_pipeline_macro_with_timeout_options() {
+        use std::time::Duration;
+
+        // Test with integer literal timeout
+        let pipeline_int = pipeline!(
+            test_pipeline_int => {
+                task1: {
+                    name: "Task with Integer Timeout",
+                    timeout: 15,  // 15 seconds as integer literal
+                    handler: async |_| {
+                        Ok(())
+                    },
+                },
+            }
+        );
+
+        // Test with Duration expression timeout
+        let pipeline_duration = pipeline!(
+            test_pipeline_duration => {
+                task1: {
+                    name: "Task with Duration Timeout",
+                    timeout: Duration::from_secs(30),  // Duration expression
+                    handler: async |_| {
+                        Ok(())
+                    },
+                },
+            }
+        );
+
+        // Verify integer literal was converted to Duration
+        let task_int = pipeline_int.tasks.get("task1").unwrap();
+        assert_eq!(task_int.timeout, Some(Duration::from_secs(15)));
+
+        // Verify Duration expression was used directly
+        let task_duration = pipeline_duration.tasks.get("task1").unwrap();
+        assert_eq!(task_duration.timeout, Some(Duration::from_secs(30)));
     }
 }

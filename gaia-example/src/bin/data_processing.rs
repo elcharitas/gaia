@@ -35,7 +35,7 @@ async fn main() -> Result<()> {
                 name: "Transform Data",
                 description: "Transform extracted data",
                 dependencies: [extract],
-                timeout: Duration::from_secs(15),
+                timeout: 15,
                 handler: async move |_| {
                     println!("🔄 Transforming data...");
                     tokio::time::sleep(Duration::from_secs(2)).await;
