@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
         data_processing, "Data Processing Pipeline" => {
             extract: {
                 name: "Extract Data",
-                description: "Extract data from source",
+                // description: "Extract data from source",
                 timeout: Duration::from_secs(10),
                 retry_count: 3,
                 handler: async |_| {

@@ -3,14 +3,17 @@
 #[macro_export]
 macro_rules! pipeline {
     (
+        $(#[$pipeline_meta:meta])* // Allow doc comments before pipeline definition
         $pipeline_id:ident$(:$parent_pipeline:ident)? $(, $pipeline_name:literal)? $(, schedule: $schedule:expr)? => {
-            $( $task_id:ident: {
+            $(#[$task_group_meta:meta])* // Allow doc comments before task group
+            $( $(#[$task_meta:meta])* $task_id:ident: {
+                $(#[$task_prop_meta:meta])* // Allow doc comments before task properties
                 name: $task_name:expr,
-                $( description: $task_desc:expr, )?
-                $( dependencies: [ $( $dep:ident ),* $(,)? ], )?
-                $( timeout: $timeout:expr, )?
-                $( retry_count: $retry:expr, )?
-                handler: $exec_fn:expr $(,)?
+                $( $(#[$desc_meta:meta])* description: $task_desc:expr, )?
+                $( $(#[$deps_meta:meta])* dependencies: [ $( $dep:ident ),* $(,)? ], )?
+                $( $(#[$timeout_meta:meta])* timeout: $timeout:expr, )?
+                $( $(#[$retry_meta:meta])* retry_count: $retry:expr, )?
+                $(#[$handler_meta:meta])* handler: $exec_fn:expr $(,)?
             } ),* $(,)?
         }
     ) => {{

@@ -124,7 +124,6 @@ impl Executor {
                 }
 
                 if let Some((task_id, Ok(result))) = running.next().await {
-                    println!("Task {} completed", task_id);
                     pipeline_state.update_task(&task_id, TaskStatus::Completed(result));
                     task_statuses
                         .lock()
