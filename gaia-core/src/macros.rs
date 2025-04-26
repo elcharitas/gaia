@@ -1,4 +1,67 @@
 //! Macros for ergonomic pipeline and task definitions
+//!
+//! This module provides macros that simplify the creation of pipelines and tasks
+//! with a more declarative syntax. The macros reduce boilerplate code and make
+//! pipeline definitions more readable and maintainable.
+//!
+//! # Examples
+//!
+//! ```
+//! use gaia_core::pipeline;
+//! use std::time::Duration;
+//!
+//! // Create a data processing pipeline with three tasks
+//! let pipeline = pipeline!(
+//!     data_pipeline, "Data Processing Pipeline", schedule: "0 0 * * *" => {
+//!         // Extract task with timeout
+//!         extract: {
+//!             name: "Extract Data",
+//!             description: "Extract data from source system",
+//!             timeout: 60, // 60 seconds
+//!             handler: |_ctx| Box::pin(async {
+//!                 // Extraction logic would go here
+//!                 Ok("Data extracted")
+//!             }),
+//!         },
+//!         
+//!         // Transform task with dependency on extract
+//!         transform: {
+//!             name: "Transform Data",
+//!             description: "Transform extracted data",
+//!             dependencies: [extract],
+//!             retry_count: 3,
+//!             handler: |ctx| Box::pin(async move {
+//!                 // Check if extract task completed successfully
+//!                 if let Some(status) = ctx.task_status("extract") {
+//!                     // Transformation logic would go here
+//!                     Ok("Data transformed")
+//!                 } else {
+//!                     Err(gaia_core::GaiaError::DependencyNotSatisfied("extract".to_string()))
+//!                 }
+//!             }),
+//!         },
+//!         
+//!         // Load task with dependency on transform
+//!         load: {
+//!             name: "Load Data",
+//!             description: "Load transformed data",
+//!             dependencies: [transform],
+//!             handler: |_ctx| Box::pin(async {
+//!                 // Loading logic would go here
+//!                 Ok("Data loaded")
+//!             }),
+//!         },
+//!     }
+//! );
+//!
+//! // The pipeline can now be validated and executed
+//! ```
+//!
+//! The macro syntax supports:
+//! - Pipeline ID, name, and schedule
+//! - Task definitions with names, descriptions, dependencies
+//! - Timeout and retry configurations
+//! - Execution handlers as async closures
 
 #[macro_export]
 macro_rules! pipeline {

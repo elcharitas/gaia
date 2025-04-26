@@ -1,4 +1,42 @@
 //! Pipeline and task state management
+//!
+//! This module provides structures for tracking the execution state of pipelines and tasks.
+//! It maintains information about start and end times, task status, retry counts, and errors.
+//!
+//! The state management system is used internally by the executor to track progress
+//! and is also used by the monitoring system to collect performance metrics.
+//!
+//! # Examples
+//!
+//! ```ignore
+//! use gaia_core::{pipeline, state::PipelineState, task::TaskStatus};
+//!
+//! let pipeline = pipeline!(
+//!     data_pipeline, "Data Processing" => {
+//!         task_1: {
+//!             name: "Task 1",
+//!             handler: async |_| {
+//!                 Ok(())
+//!             },
+//!         },
+//!     }
+//! );
+//!
+//! // Access the pipeline state
+//! let mut state = pipeline.state.lock().unwrap();
+//!
+//! // Mark the pipeline as started
+//! state.start();
+//!
+//! // Update a task state
+//! state.update_task("task_1", TaskStatus::Running);
+//!
+//! // Later, mark the task as completed
+//! state.update_task("task_1", TaskStatus::Completed(()));
+//!
+//! // Mark the pipeline as complete
+//! state.complete(true); // true indicates success
+//! ```
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -6,6 +44,12 @@ use std::time::{Duration, Instant};
 use crate::task::TaskStatus;
 
 /// Represents the current state of a pipeline execution
+///
+/// This struct tracks the overall state of a pipeline, including start and end times,
+/// the state of each task, and whether the pipeline has completed successfully.
+///
+/// The pipeline state is updated by the executor during execution and can be used
+/// to monitor progress, collect metrics, and determine the final outcome.
 #[derive(Default, Debug)]
 pub struct PipelineState {
     /// When the pipeline started executing
@@ -25,6 +69,12 @@ pub struct PipelineState {
 }
 
 /// Represents the current state of a task execution
+///
+/// This struct tracks the state of an individual task within a pipeline, including
+/// its current status, execution times, retry count, and any error information.
+///
+/// Task states are managed by the `PipelineState` and updated during pipeline execution.
+/// They provide detailed information about each task's progress and outcome.
 #[derive(Debug)]
 pub struct TaskState {
     /// Current status of the task
@@ -44,7 +94,10 @@ pub struct TaskState {
 }
 
 impl PipelineState {
-    /// Create a new pipeline state
+    /// Creates a new, empty pipeline state
+    ///
+    /// Initializes a pipeline state with no start or end time, no task states,
+    /// and marked as not complete.
     pub(super) fn new() -> Self {
         Self {
             start_time: None,
@@ -55,19 +108,37 @@ impl PipelineState {
         }
     }
 
-    /// Mark the pipeline as started
+    /// Marks the pipeline as started
+    ///
+    /// Sets the start time to the current time. This method is called by the executor
+    /// when pipeline execution begins.
     pub(super) fn start(&mut self) {
         self.start_time = Some(Instant::now().elapsed().as_millis() as u64);
     }
 
-    /// Mark the pipeline as complete
+    /// Marks the pipeline as complete
+    ///
+    /// Sets the end time to the current time and updates the completion status.
+    /// This method is called by the executor when pipeline execution finishes.
+    ///
+    /// # Arguments
+    ///
+    /// * `success` - Whether the pipeline completed successfully
     pub(super) fn complete(&mut self, success: bool) {
         self.end_time = Some(Instant::now().elapsed().as_millis() as u64);
         self.is_complete = true;
         self.is_successful = success;
     }
 
-    /// Get the duration of the pipeline execution
+    /// Gets the duration of the pipeline execution
+    ///
+    /// Calculates the duration between the start and end times of the pipeline.
+    /// If the pipeline is still running, calculates the duration from start until now.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(Duration)` - The duration if the pipeline has started
+    /// * `None` - If the pipeline hasn't started yet
     pub(super) fn duration(&self) -> Option<Duration> {
         match (self.start_time, self.end_time) {
             (Some(start), Some(end)) => Some(Duration::from_millis(end - start)),
@@ -78,7 +149,19 @@ impl PipelineState {
         }
     }
 
-    /// Update the state of a task
+    /// Updates the state of a task
+    ///
+    /// Creates or updates a task state with the given status. This method is called
+    /// by the executor when a task's status changes.
+    ///
+    /// The method automatically updates start and end times based on the status:
+    /// - Sets start time when a task transitions to Running
+    /// - Sets end time when a task reaches a terminal state (Completed, Failed, Cancelled)
+    ///
+    /// # Arguments
+    ///
+    /// * `task_id` - The unique identifier of the task
+    /// * `status` - The new status of the task
     pub(super) fn update_task(&mut self, task_id: impl Into<String>, status: TaskStatus) {
         let task_state = self
             .task_states

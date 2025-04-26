@@ -1,4 +1,67 @@
 //! Pipeline definition and management
+//!
+//! This module provides the core `Pipeline` struct which represents a collection of tasks
+//! with dependencies between them. Pipelines are the main building blocks of Gaia and
+//! allow defining complex workflows with proper dependency management.
+//!
+//! # Examples
+//!
+//! ```
+//! use gaia_core::{pipeline, Pipeline, Result};
+//!
+//! fn create_data_processing_pipeline() -> Result<Pipeline> {
+//!     let pipeline = pipeline!(
+//!         data_pipeline, "Data Processing Pipeline", schedule: "0 0 * * *" => {
+//!             extract: {
+//!                 name: "Extract Data",
+//!                 description: "Extract data from source",
+//!                 handler: async |_| {
+//!                     // Extract data implementation
+//!                     Ok(())
+//!                 },
+//!             },
+//!             transform: {
+//!                 name: "Transform Data",
+//!                 description: "Transform extracted data",
+//!                 dependencies: [extract],
+//!                 handler: async |_| {
+//!                     // Transform data implementation
+//!                     Ok(())
+//!                 },
+//!             },
+//!             load: {
+//!                 name: "Load Data",
+//!                 description: "Load transformed data",
+//!                 dependencies: [transform],
+//!                 handler: async |_| {
+//!                     // Load data implementation
+//!                     Ok(())
+//!                 },
+//!             },
+//!         }
+//!     );
+//!
+//!     // Validate the pipeline to ensure there are no circular dependencies
+//!     pipeline.validate()?;
+//!
+//!     Ok(pipeline)
+//! }
+//! ```
+//!
+//! Pipelines can be executed using the `Executor` from the executor module:
+//!
+//! ```
+//! use gaia_core::{Executor, Pipeline};
+//!
+//! async fn run_pipeline(pipeline: Pipeline) {
+//!     let executor = Executor::new();
+//!     let result = executor.execute_pipeline(pipeline).await;
+//!     match result {
+//!         Ok(_) => println!("Pipeline executed successfully"),
+//!         Err(e) => println!("Pipeline execution failed: {}", e),
+//!     }
+//! }
+//! ```
 
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
@@ -10,6 +73,21 @@ use crate::task::Task;
 use crate::{GaiaError, Result};
 
 /// Represents a pipeline of tasks with dependencies
+///
+/// A pipeline is a collection of tasks with dependencies between them. The pipeline
+/// ensures that tasks are executed in the correct order based on their dependencies.
+///
+/// Pipelines can be scheduled to run at specific times using cron expressions and
+/// can be executed using the `Executor` from the executor module.
+///
+/// # Fields
+///
+/// * `id` - Unique identifier for the pipeline
+/// * `name` - Human-readable name of the pipeline
+/// * `description` - Optional description of what the pipeline does
+/// * `schedule` - Optional cron schedule expression for the pipeline
+/// * `tasks` - Map of task IDs to tasks that make up the pipeline
+/// * `state` - Current state of the pipeline during execution
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Pipeline {
     /// Unique identifier for the pipeline
@@ -39,7 +117,26 @@ impl PartialEq for Pipeline {
 }
 
 impl Pipeline {
-    /// Create a new pipeline with the given ID and name
+    /// Creates a new pipeline with the given ID and name
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique identifier for the pipeline
+    /// * `name` - Human-readable name of the pipeline
+    ///
+    /// # Returns
+    ///
+    /// A new pipeline with no tasks, no description, and no schedule
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gaia_core::Pipeline;
+    ///
+    /// let pipeline = Pipeline::new("pipeline-1", "My Pipeline");
+    /// assert_eq!(pipeline.id, "pipeline-1");
+    /// assert_eq!(pipeline.name, "My Pipeline");
+    /// ```
     pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -51,6 +148,33 @@ impl Pipeline {
         }
     }
 
+    /// Extends this pipeline with tasks from another pipeline
+    ///
+    /// This method adds all tasks from the `other` pipeline to this pipeline.
+    /// It's useful for combining multiple smaller pipelines into a larger one.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - The pipeline whose tasks will be added to this pipeline
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if all tasks were added successfully
+    /// * `Err` if there was an error adding any task
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gaia_core::{Pipeline, Task};
+    ///
+    /// let mut main_pipeline = Pipeline::new("main", "Main Pipeline");
+    /// let mut sub_pipeline = Pipeline::new("sub", "Sub Pipeline");
+    ///
+    /// sub_pipeline.add_task(Task::new("task-1", "Task 1")).unwrap();
+    /// main_pipeline.extend(sub_pipeline).unwrap();
+    ///
+    /// assert!(main_pipeline.get_task("task-1").is_some());
+    /// ```
     pub fn extend(&mut self, other: Self) -> Result<()> {
         for (_, task) in other.tasks {
             self.add_task(task.clone())?;
@@ -58,30 +182,158 @@ impl Pipeline {
         Ok(())
     }
 
-    /// Add a task to the pipeline
+    /// Adds a task to the pipeline
+    ///
+    /// # Arguments
+    ///
+    /// * `task` - The task to add to the pipeline
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if the task was added successfully
+    /// * `Err` if there was an error adding the task
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gaia_core::{Pipeline, Task};
+    ///
+    /// let mut pipeline = Pipeline::new("pipeline-1", "My Pipeline");
+    /// let task = Task::new("task-1", "My Task");
+    ///
+    /// pipeline.add_task(task).unwrap();
+    /// assert!(pipeline.get_task("task-1").is_some());
+    /// ```
     pub fn add_task(&mut self, task: Task) -> Result<()> {
         self.tasks.insert(task.id.clone(), task);
         Ok(())
     }
 
-    /// Get a task by ID
+    /// Gets a task by ID
+    ///
+    /// # Arguments
+    ///
+    /// * `task_id` - The ID of the task to get
+    ///
+    /// # Returns
+    ///
+    /// * `Some(&Task)` if the task exists in the pipeline
+    /// * `None` if the task does not exist in the pipeline
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gaia_core::{Pipeline, Task};
+    ///
+    /// let mut pipeline = Pipeline::new("pipeline-1", "My Pipeline");
+    /// pipeline.add_task(Task::new("task-1", "My Task")).unwrap();
+    ///
+    /// let task = pipeline.get_task("task-1");
+    /// assert!(task.is_some());
+    /// assert_eq!(task.unwrap().name, "My Task");
+    ///
+    /// let non_existent = pipeline.get_task("non-existent");
+    /// assert!(non_existent.is_none());
+    /// ```
     pub fn get_task(&self, task_id: &str) -> Option<&Task> {
         self.tasks.get(task_id)
     }
 
-    /// Set the description for this pipeline
+    /// Sets the description for this pipeline
+    ///
+    /// # Arguments
+    ///
+    /// * `description` - A description of what the pipeline does
+    ///
+    /// # Returns
+    ///
+    /// The pipeline with the description set
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gaia_core::Pipeline;
+    ///
+    /// let pipeline = Pipeline::new("pipeline-1", "My Pipeline")
+    ///     .with_description("This pipeline does something important");
+    ///
+    /// assert_eq!(pipeline.description, Some("This pipeline does something important".to_string()));
+    /// ```
     pub fn with_description(mut self, description: impl Into<String>) -> Self {
         self.description = Some(description.into());
         self
     }
 
-    /// Set the cron schedule for this pipeline
+    /// Sets the cron schedule for this pipeline
+    ///
+    /// # Arguments
+    ///
+    /// * `schedule` - A cron expression defining when the pipeline should run
+    ///
+    /// # Returns
+    ///
+    /// The pipeline with the schedule set
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gaia_core::Pipeline;
+    ///
+    /// let pipeline = Pipeline::new("pipeline-1", "My Pipeline")
+    ///     .with_schedule("0 0 * * *"); // Run daily at midnight
+    ///
+    /// assert_eq!(pipeline.schedule, Some("0 0 * * *".to_string()));
+    /// ```
     pub fn with_schedule(mut self, schedule: impl Into<String>) -> Self {
         self.schedule = Some(schedule.into());
         self
     }
 
-    /// Validate the pipeline for circular dependencies
+    /// Validates the pipeline for circular dependencies
+    ///
+    /// This method checks that there are no circular dependencies between tasks
+    /// in the pipeline. It also verifies that all task dependencies exist in the pipeline.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if the pipeline is valid
+    /// * `Err(GaiaError::CircularDependency)` if there is a circular dependency
+    /// * `Err(GaiaError::TaskNotFound)` if a task depends on a non-existent task
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gaia_core::{Pipeline, Task, Result};
+    ///
+    /// fn create_valid_pipeline() -> Result<()> {
+    ///     let mut pipeline = Pipeline::new("pipeline-1", "Valid Pipeline");
+    ///
+    ///     pipeline.add_task(Task::new("task-1", "Task 1"))?;
+    ///     pipeline.add_task(
+    ///         Task::new("task-2", "Task 2")
+    ///             .add_dependency("task-1")
+    ///     )?;
+    ///
+    ///     // This should succeed
+    ///     pipeline.validate()
+    /// }
+    ///
+    /// fn create_invalid_pipeline() -> Result<()> {
+    ///     let mut pipeline = Pipeline::new("pipeline-2", "Invalid Pipeline");
+    ///
+    ///     pipeline.add_task(
+    ///         Task::new("task-1", "Task 1")
+    ///             .add_dependency("task-2")
+    ///     )?;
+    ///     pipeline.add_task(
+    ///         Task::new("task-2", "Task 2")
+    ///             .add_dependency("task-1")
+    ///     )?;
+    ///
+    ///     // This should fail with CircularDependency
+    ///     pipeline.validate()
+    /// }
+    /// ```
     pub fn validate(&self) -> Result<()> {
         let mut visited = HashSet::new();
         let mut stack = HashSet::new();
@@ -95,7 +347,22 @@ impl Pipeline {
         Ok(())
     }
 
-    /// Check if the pipeline has a cycle
+    /// Checks if the pipeline has a cycle starting from the given task
+    ///
+    /// This is a helper method used by `validate()` to detect circular dependencies
+    /// using a depth-first search algorithm.
+    ///
+    /// # Arguments
+    ///
+    /// * `task` - The task to start the cycle check from
+    /// * `visited` - Set of task IDs that have been visited in any path
+    /// * `stack` - Set of task IDs in the current path
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(true)` if a cycle was detected
+    /// * `Ok(false)` if no cycle was detected
+    /// * `Err` if a task dependency doesn't exist
     fn has_cycle(
         &self,
         task: &Task,

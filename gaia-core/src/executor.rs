@@ -1,4 +1,63 @@
 //! Task and pipeline execution logic
+//!
+//! This module provides the execution engine for Gaia pipelines. It handles the scheduling
+//! and execution of tasks based on their dependencies, monitors their progress, and collects
+//! performance metrics.
+//!
+//! The executor is responsible for:
+//! - Validating pipelines before execution
+//! - Determining the execution order of tasks based on dependencies
+//! - Running tasks concurrently when possible
+//! - Handling task timeouts and retries
+//! - Collecting execution metrics
+//!
+//! # Examples
+//!
+//! ```
+//! use gaia_core::{pipeline, Executor, executor::ExecutorConfig, Result};
+//! use std::time::Duration;
+//!
+//! async fn run_example_pipeline() -> Result<()> {
+//!     let pipeline = pipeline!(
+//!         data_pipeline, "Data Processing" => {
+//!             extract: {
+//!                 name: "Extract Data",
+//!                 handler: async |_| {
+//!                     // Extract data implementation
+//!                     Ok(())
+//!                 },
+//!             },
+//!             transform: {
+//!                 name: "Transform Data",
+//!                 dependencies: [extract],
+//!                 handler: async |_| {
+//!                     // Transform data implementation
+//!                     Ok(())
+//!                 },
+//!             },
+//!         }
+//!     );
+//!     
+//!     // Create an executor with custom configuration
+//!     let executor = Executor::with_config(
+//!         ExecutorConfig {
+//!             default_timeout: Duration::from_secs(300), // 5 minutes
+//!             max_concurrent_tasks: 8,
+//!             continue_on_failure: false,
+//!         }
+//!     );
+//!     
+//!     // Execute the pipeline
+//!     let monitor = executor.execute_pipeline(pipeline).await?;
+//!     
+//!     // Access execution metrics
+//!     for metric in monitor.get_metrics() {
+//!         println!("Metric: {} = {}", metric.name, metric.value);
+//!     }
+//!     
+//!     Ok(())
+//! }
+//! ```
 
 use futures::stream::{FuturesUnordered, StreamExt};
 use std::collections::{HashMap, HashSet};
@@ -11,23 +70,73 @@ use crate::pipeline::Pipeline;
 use crate::task::{Task, TaskResult, TaskStatus};
 
 /// Handles the execution of pipelines and their tasks
+///
+/// The `Executor` is responsible for running pipelines and their tasks in the correct order,
+/// respecting dependencies between tasks, and handling failures appropriately.
+///
+/// It provides methods for executing entire pipelines or individual tasks, and can be
+/// configured with custom timeout, concurrency, and failure handling settings.
 #[derive(Debug)]
 pub struct Executor {
     /// Configuration for the executor
     config: ExecutorConfig,
 }
 
+/// Context provided to task execution functions
+///
+/// This struct provides access to the current state of the pipeline execution,
+/// allowing tasks to check the status of other tasks and make decisions based
+/// on that information.
+///
+/// It's passed to task execution functions when they're invoked by the executor.
 pub struct ExecutorContext {
     task_statuses: Arc<Mutex<HashMap<String, TaskStatus>>>,
 }
 
 impl ExecutorContext {
+    /// Creates a new executor context
+    ///
+    /// This is used internally by the executor to create a context for task execution.
+    ///
+    /// # Arguments
+    ///
+    /// * `task_statuses` - Shared map of task IDs to their current status
+    /// Gets the current status of a task
+    ///
+    /// This method allows a task to check the status of another task in the pipeline.
+    /// This is useful for conditional execution based on the results of other tasks.
+    ///
+    /// # Arguments
+    ///
+    /// * `task_id` - The ID of the task to check
+    ///
+    /// # Returns
+    ///
+    /// * `Some(TaskStatus)` - The current status of the task if it exists
+    /// * `None` - If the task doesn't exist in the pipeline
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gaia_core::task::{TaskStatus, TaskResult};
+    /// use gaia_core::executor::ExecutorContext;
+    ///
+    /// fn check_dependency(ctx: &ExecutorContext) -> bool {
+    ///     match ctx.task_status("dependency-task") {
+    ///         Some(TaskStatus::Completed(_)) => true,
+    ///         _ => false,
+    ///     }
+    /// }
+    /// ```
     pub fn task_status(&self, task_id: &str) -> Option<TaskStatus> {
         self.task_statuses.lock().unwrap().get(task_id).cloned()
     }
 }
 
 /// Configuration options for the executor
+///
+/// This struct allows customizing the behavior of the executor, including
+/// timeout durations, concurrency limits, and failure handling.
 #[derive(Debug)]
 pub struct ExecutorConfig {
     /// Default timeout for tasks that don't specify one
@@ -49,19 +158,87 @@ impl Default for ExecutorConfig {
 }
 
 impl Executor {
-    /// Create a new executor with default configuration
+    /// Creates a new executor with default configuration
+    ///
+    /// The default configuration includes:
+    /// - 1 hour default timeout for tasks
+    /// - 4 concurrent tasks maximum
+    /// - Continue pipeline execution when a task fails
+    /// Creates a new executor with default configuration
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gaia_core::Executor;
+    ///
+    /// let executor = Executor::new();
+    /// ```
     pub fn new() -> Self {
         Self {
             config: ExecutorConfig::default(),
         }
     }
 
-    /// Create a new executor with custom configuration
+    /// Creates a new executor with custom configuration
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Custom configuration for the executor
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gaia_core::{Executor, executor::ExecutorConfig};
+    /// use std::time::Duration;
+    ///
+    /// let config = ExecutorConfig {
+    ///     default_timeout: Duration::from_secs(300), // 5 minutes
+    ///     max_concurrent_tasks: 8,
+    ///     continue_on_failure: false,
+    /// };
+    ///
+    /// let executor = Executor::with_config(config);
+    /// ```
     pub fn with_config(config: ExecutorConfig) -> Self {
         Self { config }
     }
 
-    /// Execute a pipeline
+    /// Executes a pipeline and returns execution metrics
+    ///
+    /// This method executes all tasks in the pipeline in the correct order based on
+    /// their dependencies. It handles concurrent execution of independent tasks and
+    /// collects metrics about the execution.
+    ///
+    /// # Arguments
+    ///
+    /// * `pipeline` - The pipeline to execute
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Monitor)` - Execution completed successfully, with collected metrics
+    /// * `Err(GaiaError)` - Execution failed
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gaia_core::{Executor, Pipeline, Task};
+    ///
+    /// async fn run_pipeline() {
+    ///     let mut pipeline = Pipeline::new("pipeline-1", "Example Pipeline");
+    ///     pipeline.add_task(Task::new("task-1", "Example Task")).unwrap();
+    ///
+    ///     let executor = Executor::new();
+    ///     match executor.execute_pipeline(pipeline).await {
+    ///         Ok(monitor) => {
+    ///             println!("Pipeline executed successfully");
+    ///             for metric in monitor.get_metrics() {
+    ///                 println!("Metric: {} = {}", metric.name, metric.value);
+    ///             }
+    ///         },
+    ///         Err(e) => println!("Pipeline execution failed: {}", e),
+    ///     }
+    /// }
+    /// ```
     pub async fn execute_pipeline(&self, mut pipeline: Pipeline) -> crate::Result<Monitor> {
         let mut monitor = Monitor::new();
 
@@ -157,7 +334,23 @@ impl Executor {
         Ok(monitor)
     }
 
-    /// Execute a single task
+    /// Executes a single task
+    ///
+    /// This method executes a single task and returns its result. It handles timeouts
+    /// and execution errors, and updates the task's status accordingly.
+    ///
+    /// This is primarily used internally by `execute_pipeline`, but can also be used
+    /// to execute individual tasks outside of a pipeline context.
+    ///
+    /// # Arguments
+    ///
+    /// * `task` - The task to execute
+    /// * `task_statuses` - Shared map of task IDs to their current status
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Box<dyn TaskResult>)` - Task executed successfully with a result
+    /// * `Err(GaiaError)` - Task execution failed
     pub async fn execute_task(
         &self,
         task: &mut Task,
