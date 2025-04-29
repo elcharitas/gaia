@@ -80,6 +80,7 @@ macro_rules! pipeline {
             } ),* $(,)?
         }
     ) => {{
+        $(#[$pipeline_meta])*
         let mut $pipeline_id = $crate::Pipeline::new(stringify!($pipeline_id), {
             #[allow(unused_mut, unused_assignments)]
             let mut name = stringify!($pipeline_id);
@@ -91,6 +92,7 @@ macro_rules! pipeline {
             $($pipeline_id = $pipeline_id.with_schedule($schedule);)?
             $(
                 #[allow(unused_mut)]
+                $(#[$task_meta:meta])*
                 let $task_id = $crate::Task::new(stringify!($task_id).to_string(), $task_name)
                     $(.with_description($task_desc.to_string()))?
                     $($(.add_dependency(stringify!($dep).to_string()))*)?
